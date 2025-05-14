@@ -5,7 +5,7 @@ namespace App\Filament\Admin\Resources\AbsensiResource\Pages;
 use App\Filament\Admin\Resources\AbsensiResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
-
+use Filament\Actions\Action;
 
 class ListAbsensis extends ListRecords
 {
@@ -14,12 +14,13 @@ class ListAbsensis extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
-        ];
-    }
+            Action::make('lihatRekap')
+                ->label('Lihat Rekapitulasi Absensi')
+                ->icon('heroicon-o-chart-bar')
+                ->url(route('filament.admin.pages.rekap-absensi')) // sesuaikan jika route kamu beda
+                ->color('success'),
 
-    public function getFooter(): ?\Illuminate\View\View
-    {
-        return view('filament.pages.rekap-button');
+            Actions\CreateAction::make(), // tombol New Absensi tetap tampil
+        ];
     }
 }
