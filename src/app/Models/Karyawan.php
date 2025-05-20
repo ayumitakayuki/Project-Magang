@@ -7,10 +7,28 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Karyawan extends Model
 {
-    protected $fillable = ['nama', 'nip', 'jabatan', 'email'];
+    // ✅ Tambahkan properti fillable
+    protected $fillable = [
+        'id_karyawan',
+        'nama',
+        'status',
+        'lokasi',
+        'gaji_perbulan',
+        'gaji_lembur',
+        'gaji_harian',
+    ];
 
     public function absensis(): HasMany
     {
         return $this->hasMany(Absensi::class, 'name', 'nama');
+    }
+
+    protected static function booted()
+    {
+        static::creating(function ($karyawan) {
+            if (empty($karyawan->id_karyawan)) {
+                $karyawan->id_karyawan = 'KR-' . strtoupper(uniqid());
+            }
+        });
     }
 }

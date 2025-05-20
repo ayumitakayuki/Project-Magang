@@ -13,8 +13,8 @@ class KaryawanImport implements ToCollection, WithHeadingRow
     protected array $requiredHeaders = [
         'id_karyawan',
         'nama',
-        'posisi',
-        'bagian',
+        'status',
+        'lokasi',
         'gaji_perbulan',
         'gaji_lembur',
         'gaji_harian',
@@ -59,8 +59,8 @@ class KaryawanImport implements ToCollection, WithHeadingRow
                 ['id_karyawan' => $row['id_karyawan']],
                 [
                     'nama' => $row['nama'],
-                    'posisi' => $row['posisi'] ?? null,
-                    'bagian' => $row['bagian'] ?? null,
+                    'status' => $row['status'] ?? null,
+                    'lokasi' => $row['lokasi'] ?? null,
                     'gaji_perbulan' => $row['gaji_perbulan'] ?? null,
                     'gaji_lembur' => $row['gaji_lembur'] ?? null,
                     'gaji_harian' => $row['gaji_harian'] ?? null,

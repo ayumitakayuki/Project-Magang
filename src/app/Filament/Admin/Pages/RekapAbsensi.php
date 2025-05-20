@@ -7,7 +7,6 @@ use App\Models\Karyawan;
 use App\Services\AbsensiRekapService;
 use Filament\Pages\Page;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 
 class RekapAbsensi extends Page
 {
@@ -16,6 +15,7 @@ class RekapAbsensi extends Page
     protected static string $view = 'filament.pages.rekap-absensi';
 
     public array $rekap = [];
+    public $data_harian = [];
 
     public ?string $start_date = null;
     public ?string $end_date = null;
@@ -46,7 +46,6 @@ class RekapAbsensi extends Page
         $this->loadRekap();
     }
 
-
     public function loadRekap(): void
     {
         if ($this->selected_name) {
@@ -55,6 +54,11 @@ class RekapAbsensi extends Page
                 $this->start_date,
                 $this->end_date
             );
+
+            $this->data_harian = Absensi::where('name', $this->selected_name)
+                ->whereBetween('tanggal', [$this->start_date, $this->end_date])
+                ->orderBy('tanggal')
+                ->get();
         }
     }
 }

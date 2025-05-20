@@ -35,13 +35,23 @@ class KaryawanResource extends Resource
                 ->required()
                 ->maxLength(100),
 
-            TextInput::make('posisi')
-                ->label('Posisi')
-                ->maxLength(100),
+            // Ganti jadi dropdown
+            Forms\Components\Select::make('status')
+                ->label('Status')
+                ->options([
+                    'staff' => 'Staff',
+                    'harian tetap' => 'Harian Tetap',
+                    'harian lepas' => 'Harian Lepas',
+                ])
+                ->required(),
 
-            TextInput::make('bagian')
-                ->label('Bagian')
-                ->maxLength(100),
+            Forms\Components\Select::make('lokasi')
+                ->label('Lokasi')
+                ->options([
+                    'workshop' => 'Workshop',
+                    'proyek' => 'Proyek',
+                ])
+                ->required(),
 
             TextInput::make('gaji_perbulan')
                 ->label('Gaji Per Bulan')
@@ -57,14 +67,15 @@ class KaryawanResource extends Resource
         ]);
     }
 
+
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
                 TextColumn::make('id_karyawan')->label('ID Karyawan')->searchable()->sortable(),
                 TextColumn::make('nama')->label('Nama')->searchable()->sortable(),
-                TextColumn::make('posisi')->label('Posisi')->sortable(),
-                TextColumn::make('bagian')->label('Bagian')->sortable(),
+                TextColumn::make('status')->label('Status')->sortable(),
+                TextColumn::make('lokasi')->label('Lokasi')->sortable(),
                 TextColumn::make('gaji_perbulan')
                     ->label('Gaji Per Bulan')
                     ->formatStateUsing(fn ($state) => number_format($state, 0, ',', '.')),
@@ -76,13 +87,13 @@ class KaryawanResource extends Resource
                     ->formatStateUsing(fn ($state) => number_format($state, 0, ',', '.')),
             ])
             ->filters([
-                SelectFilter::make('bagian')
-                    ->label('Filter Bagian')
-                    ->options(fn () => Karyawan::query()->distinct()->pluck('bagian', 'bagian')->filter()),
+                SelectFilter::make('lokasi')
+                    ->label('Filter Lokasi')
+                    ->options(fn () => Karyawan::query()->distinct()->pluck('lokasi', 'lokasi')->filter()),
 
-                SelectFilter::make('posisi')
-                    ->label('Filter Posisi')
-                    ->options(fn () => Karyawan::query()->distinct()->pluck('posisi', 'posisi')->filter()),
+                SelectFilter::make('status')
+                    ->label('Filter Status')
+                    ->options(fn () => Karyawan::query()->distinct()->pluck('status', 'status')->filter()),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

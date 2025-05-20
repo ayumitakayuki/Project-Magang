@@ -4,7 +4,6 @@
 
         {{-- FORM FILTER --}}
         <form method="GET" class="mb-6 flex flex-wrap items-center gap-2">
-            {{-- Input Cari Karyawan (ID atau Nama) --}}
             <input
                 type="text"
                 name="karyawan_keyword"
@@ -13,22 +12,24 @@
                 class="rounded-lg px-3 py-1 bg-blue-200 text-sm w-64"
             />
 
-            {{-- Filter Tanggal --}}
             <input
-                type="date"
+                type="text"
+                id="start_date"
                 name="start_date"
                 value="{{ request('start_date') ?? now()->subMonth()->toDateString() }}"
                 class="rounded-lg px-3 py-1 bg-blue-200 text-sm"
+                placeholder="Start Date"
             />
             <span>-</span>
             <input
-                type="date"
+                type="text"
+                id="end_date"
                 name="end_date"
                 value="{{ request('end_date') ?? now()->toDateString() }}"
                 class="rounded-lg px-3 py-1 bg-blue-200 text-sm"
+                placeholder="End Date"
             />
 
-            {{-- Tombol Filter --}}
             <button type="submit"
                 class="px-4 py-1 bg-green-300 hover:bg-green-400 text-sm rounded-lg transition">
                 Filter
@@ -57,30 +58,106 @@
             </div>
         </div>
 
-        {{-- TABEL REKAP --}}
-        @if (!empty($rekap))
-            <table class="w-full table-auto text-sm bg-blue-200 rounded-lg overflow-hidden border">
-                <thead class="bg-gray-100">
+        {{-- TABEL REKAP PER TANGGAL (SESUAI GAMBAR) --}}
+        @if (!empty($rekap['per_tanggal']))
+            <h3 class="text-md font-bold mb-2">Rekap Per Tanggal</h3>
+            <table class="w-full text-sm border border-black text-center bg-white shadow-md">
+                <thead class="bg-gray-100 font-bold text-black">
                     <tr>
-                        <th class="p-2 border">Kategori</th>
-                        <th class="p-2 border">Jumlah Hari</th>
+                        <th class="border px-3 py-2" rowspan="2">Tanggal</th>
+                        <th class="border px-3 py-2" colspan="5">HARI</th>
+                    </tr>
+                    <tr>
+                        <th class="border px-3 py-2">S-J</th>
+                        <th class="border px-3 py-2">SABTU</th>
+                        <th class="border px-3 py-2">MINGGU</th>
+                        <th class="border px-3 py-2">HARI BESAR</th>
+                        <th class="border px-3 py-2">TIDAK MASUK</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($rekap as $kategori => $jumlah)
+                    @foreach ($rekap['per_tanggal'] as $tanggal => $data)
                         <tr>
-                            <td class="p-2 border">{{ $kategori }}</td>
-                            <td class="p-2 border">{{ $jumlah }}</td>
+                            <td class="border px-3 py-1">{{ \Carbon\Carbon::parse($tanggal)->format('d-m-Y') }}</td>
+                            <td class="border px-3 py-1">{{ $data['sj'] ?? '-' }}</td>
+                            <td class="border px-3 py-1">{{ $data['sabtu'] ?? '-' }}</td>
+                            <td class="border px-3 py-1">{{ $data['minggu'] ?? '-' }}</td>
+                            <td class="border px-3 py-1">{{ $data['hari_besar'] ?? '-' }}</td>
+                            <td class="border px-3 py-1">{{ $data['tidak_masuk'] ?? '-' }}</td>
                         </tr>
                     @endforeach
-                    <tr class="font-semibold bg-blue-300">
-                        <td class="p-2 border">Total</td>
-                        <td class="p-2 border">{{ array_sum($rekap) }}</td>
+                    <tr class="font-bold bg-gray-50">
+                        <td class="border px-3 py-2">TOTAL</td>
+                        <td class="border px-3 py-2">{{ $rekap['sj'] ?? '0 jam' }}</td>
+                        <td class="border px-3 py-2">{{ $rekap['sabtu'] ?? '0 jam' }}</td>
+                        <td class="border px-3 py-2">{{ $rekap['minggu'] ?? '0 jam' }}</td>
+                        <td class="border px-3 py-2">{{ $rekap['hari_besar'] ?? '0 jam' }}</td>
+                        <td class="border px-3 py-2">{{ $rekap['tidak_masuk'] ?? 0 }} hari</td>
                     </tr>
                 </tbody>
             </table>
-        @else
-            <p class="text-gray-500 mt-4 text-sm">Tidak ada data untuk filter yang diberikan.</p>
         @endif
+
+        {{-- TABEL DETAIL ABSENSI HARIAN --}}
+        @if (!empty($data_harian))
+            <h3 class="text-md font-bold mt-8 mb-2">Detail Absensi Harian</h3>
+            <table class="w-full text-sm border border-black text-center bg-white shadow-md">
+                <thead class="bg-gray-200 font-bold text-black">
+                    <tr>
+                        <th class="border px-3 py-2">Tanggal</th>
+                        <th class="border px-3 py-2">Masuk Pagi</th>
+                        <th class="border px-3 py-2">Keluar Siang</th>
+                        <th class="border px-3 py-2">Masuk Siang</th>
+                        <th class="border px-3 py-2">Pulang Kerja</th>
+                        <th class="border px-3 py-2">Masuk Lembur</th>
+                        <th class="border px-3 py-2">Pulang Lembur</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($data_harian as $absen)
+                        <tr>
+                            <td class="border px-3 py-1">{{ \Carbon\Carbon::parse($absen->tanggal)->format('d-m-Y') }}</td>
+                            <td class="border px-3 py-1">{{ $absen->masuk_pagi ?? '-' }}</td>
+                            <td class="border px-3 py-1">{{ $absen->keluar_siang ?? '-' }}</td>
+                            <td class="border px-3 py-1">{{ $absen->masuk_siang ?? '-' }}</td>
+                            <td class="border px-3 py-1">{{ $absen->pulang_kerja ?? '-' }}</td>
+                            <td class="border px-3 py-1">{{ $absen->masuk_lembur ?? '-' }}</td>
+                            <td class="border px-3 py-1">{{ $absen->pulang_lembur ?? '-' }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @endif
+
     </x-filament::card>
 </x-filament::page>
+
+@push('styles')
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/themes/airbnb.css">
+@endpush
+
+@push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            fetch("https://raw.githubusercontent.com/guangrei/APIHariLibur_V2/main/holidays.json")
+                .then(response => response.json())
+                .then(libur => {
+                    const tanggalMerah = Object.keys(libur);
+                    const commonOptions = {
+                        dateFormat: "Y-m-d",
+                        onDayCreate: function (dObj, dStr, fp, dayElem) {
+                            const dateStr = dayElem.dateObj.toLocaleDateString('sv-SE');
+                            if (tanggalMerah.includes(dateStr)) {
+                                dayElem.style.backgroundColor = "#f87171";
+                                dayElem.style.color = "white";
+                                dayElem.title = libur[dateStr];
+                            }
+                        }
+                    };
+                    flatpickr("#start_date", commonOptions);
+                    flatpickr("#end_date", commonOptions);
+                });
+        });
+    </script>
+@endpush
