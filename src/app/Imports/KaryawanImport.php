@@ -15,8 +15,11 @@ class KaryawanImport implements ToCollection, WithHeadingRow
         'nama',
         'status',
         'lokasi',
+        'jenis_proyek',
         'gaji_perbulan',
-        'gaji_lembur',
+        'gaji_lembur_reguler',
+        'gaji_lembur_sabtu',
+        'gaji_lembur_minggu_haribesar',
         'gaji_harian',
     ];
 
@@ -61,8 +64,11 @@ class KaryawanImport implements ToCollection, WithHeadingRow
                     'nama' => $row['nama'],
                     'status' => $row['status'] ?? null,
                     'lokasi' => $row['lokasi'] ?? null,
+                    'jenis_proyek' => $row['jenis_proyek'] ?? null,
                     'gaji_perbulan' => $row['gaji_perbulan'] ?? null,
-                    'gaji_lembur' => $row['gaji_lembur'] ?? null,
+                    'gaji_lembur_reguler' => $row['gaji_lembur_reguler'] ?? null,
+                    'gaji_lembur_sabtu' => $row['gaji_lembur_sabtu'] ?? null,
+                    'gaji_lembur_minggu_haribesar' => $row['gaji_lembur_minggu_haribesar'] ?? null,
                     'gaji_harian' => $row['gaji_harian'] ?? null,
                 ]
             );

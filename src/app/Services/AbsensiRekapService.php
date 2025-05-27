@@ -93,6 +93,29 @@ class AbsensiRekapService
         return $rekap;
     }
 
+    public function rekapSemuaUser($start, $end)
+    {
+        $data = Absensi::whereBetween('tanggal', [$start, $end])->get();
+
+        $rekap = [
+            'per_tanggal' => [],
+            'sj' => 0,
+            'sabtu' => 0,
+            'minggu' => 0,
+            'hari_besar' => 0,
+            'tidak_masuk' => 0,
+        ];
+
+        foreach ($data as $absen) {
+            $tanggal = $absen->tanggal;
+            $rekap['per_tanggal'][$tanggal]['sj'] ??= 0;
+            $rekap['per_tanggal'][$tanggal]['sj'] += $absen->jam_sj ?? 0;
+            // dan seterusnya sesuai format jam kerja kamu
+        }
+
+        return $rekap;
+    }
+
     private function hitungJamKerja(?Absensi $absensi): int
     {
         if (!$absensi) return 0;

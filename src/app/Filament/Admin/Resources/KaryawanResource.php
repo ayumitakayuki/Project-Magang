@@ -7,6 +7,7 @@ use App\Models\Karyawan;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Select;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -35,8 +36,7 @@ class KaryawanResource extends Resource
                 ->required()
                 ->maxLength(100),
 
-            // Ganti jadi dropdown
-            Forms\Components\Select::make('status')
+            Select::make('status')
                 ->label('Status')
                 ->options([
                     'staff' => 'Staff',
@@ -45,20 +45,40 @@ class KaryawanResource extends Resource
                 ])
                 ->required(),
 
-            Forms\Components\Select::make('lokasi')
+            Select::make('lokasi')
                 ->label('Lokasi')
                 ->options([
                     'workshop' => 'Workshop',
                     'proyek' => 'Proyek',
                 ])
-                ->required(),
+                ->required()
+                ->reactive()
+                ->afterStateUpdated(fn ($state, callable $set) => $state !== 'proyek' ? $set('jenis_proyek', null) : null),
+
+            Select::make('jenis_proyek')
+                ->label('Jenis Proyek')
+                ->options([
+                    'Proyek A' => 'Proyek A',
+                    'Proyek B' => 'Proyek B',
+                    'Proyek C' => 'Proyek C',
+                ])
+                ->visible(fn ($get) => $get('lokasi') === 'proyek')
+                ->required(fn ($get) => $get('lokasi') === 'proyek'),
 
             TextInput::make('gaji_perbulan')
                 ->label('Gaji Per Bulan')
                 ->numeric(),
 
-            TextInput::make('gaji_lembur')
-                ->label('Gaji Lembur')
+            TextInput::make('gaji_lembur_reguler')
+                ->label('Gaji Lembur Reguler')
+                ->numeric(),
+
+            TextInput::make('gaji_lembur_sabtu')
+                ->label('Gaji Lembur Sabtu')
+                ->numeric(),
+
+            TextInput::make('gaji_lembur_minggu_haribesar')
+                ->label('Gaji Lembur Minggu/HariBesar')
                 ->numeric(),
 
             TextInput::make('gaji_harian')
@@ -67,21 +87,53 @@ class KaryawanResource extends Resource
         ]);
     }
 
-
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
-                TextColumn::make('id_karyawan')->label('ID Karyawan')->searchable()->sortable(),
-                TextColumn::make('nama')->label('Nama')->searchable()->sortable(),
-                TextColumn::make('status')->label('Status')->sortable(),
-                TextColumn::make('lokasi')->label('Lokasi')->sortable(),
+                TextColumn::make('id_karyawan')
+                    ->label('ID Karyawan')
+                    ->searchable()
+                    ->sortable(),
+
+                TextColumn::make('nama')
+                    ->label('Nama')
+                    ->searchable()
+                    ->sortable(),
+
+                TextColumn::make('status')
+                    ->label('Status')
+                    ->sortable(),
+
+                TextColumn::make('lokasi')
+                    ->label('Lokasi')
+                    ->sortable(),
+
+                TextColumn::make('jenis_proyek')
+                    ->label('Jenis Proyek')
+                    ->sortable()
+                    ->formatStateUsing(function ($state, $record) {
+                        $validProjects = ['Proyek A', 'Proyek B', 'Proyek C'];
+                        return $record->lokasi === 'proyek' && in_array($state, $validProjects) ? $state : null;
+                    })
+                    ->toggleable(isToggledHiddenByDefault: false),
+
                 TextColumn::make('gaji_perbulan')
                     ->label('Gaji Per Bulan')
                     ->formatStateUsing(fn ($state) => number_format($state, 0, ',', '.')),
-                TextColumn::make('gaji_lembur')
-                    ->label('Gaji Lembur')
+
+                TextColumn::make('gaji_lembur_reguler')
+                    ->label('Gaji Lembur Reguler')
                     ->formatStateUsing(fn ($state) => number_format($state, 0, ',', '.')),
+
+                TextColumn::make('gaji_lembur_sabtu')
+                    ->label('Gaji Lembur Sabtu')
+                    ->formatStateUsing(fn ($state) => number_format($state, 0, ',', '.')),
+
+                TextColumn::make('gaji_lembur_minggu_haribesar')
+                    ->label('Gaji Lembur Minggu/HariBesar')
+                    ->formatStateUsing(fn ($state) => number_format($state, 0, ',', '.')),
+
                 TextColumn::make('gaji_harian')
                     ->label('Gaji Harian')
                     ->formatStateUsing(fn ($state) => number_format($state, 0, ',', '.')),

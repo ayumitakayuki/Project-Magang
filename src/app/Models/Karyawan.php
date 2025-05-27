@@ -13,8 +13,11 @@ class Karyawan extends Model
         'nama',
         'status',
         'lokasi',
+        'jenis_proyek',
         'gaji_perbulan',
-        'gaji_lembur',
+        'gaji_lembur_reguler',
+        'gaji_lembur_sabtu',
+        'gaji_lembur_minggu_haribesar',
         'gaji_harian',
     ];
 

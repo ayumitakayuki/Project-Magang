@@ -21,10 +21,14 @@ return new class extends Migration
 
             // ENUM untuk lokasi
             $table->enum('lokasi', ['workshop', 'proyek'])->default('workshop');
+            $table->string('jenis_proyek', 100)->nullable();
 
             $table->decimal('gaji_perbulan', 15, 2)->nullable();
-            $table->decimal('gaji_lembur', 15, 2)->nullable();
+            $table->decimal('gaji_lembur_reguler', 15, 2)->nullable();
+            $table->decimal('gaji_lembur_sabtu', 15, 2)->nullable();
+            $table->decimal('gaji_lembur_minggu_haribesar', 15, 2)->nullable();
             $table->decimal('gaji_harian', 15, 2)->nullable();
+            
             $table->timestamps();
         });
     }
