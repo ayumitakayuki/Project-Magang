@@ -31,13 +31,10 @@ class RekapAbsensi extends Page
     public $lokasi_options = [];
     public $proyek_options = [];
 
-
     public function mount(Request $request): void
     {
         $this->all_karyawan = Karyawan::get(['id_karyawan', 'nama']);
         $this->status_karyawan = $request->query('status_karyawan');
-
-
 
         $keyword = $request->query('karyawan_keyword');
         $this->selected_lokasi = $request->query('lokasi');
@@ -65,11 +62,14 @@ class RekapAbsensi extends Page
             ->filter()
             ->values()
             ->all();
+
         $this->proyek_options = Karyawan::query()
             ->where('lokasi', 'proyek')
             ->whereNotNull('jenis_proyek')
+            ->orderBy('jenis_proyek')
             ->distinct()
             ->pluck('jenis_proyek')
+            ->unique()
             ->filter()
             ->values()
             ->all();
@@ -80,9 +80,8 @@ class RekapAbsensi extends Page
     public function loadRekap(): void
     {
         if ($this->show_all) {
+            // logika show_all seperti biasa (OK)
             $query = Absensi::whereBetween('tanggal', [$this->start_date, $this->end_date]);
-
-            // Ambil semua nama karyawan sesuai filter
             $karyawanQuery = Karyawan::query();
 
             if ($this->status_karyawan && $this->status_karyawan !== 'all') {
@@ -111,6 +110,7 @@ class RekapAbsensi extends Page
                 $nama_karyawan
             );
         } elseif ($this->selected_name) {
+            // logika per nama spesifik
             $this->rekap = (new AbsensiRekapService())->rekapUntukUser(
                 $this->selected_name,
                 $this->start_date,
@@ -121,6 +121,60 @@ class RekapAbsensi extends Page
                 ->whereBetween('tanggal', [$this->start_date, $this->end_date])
                 ->orderBy('tanggal')
                 ->get();
+        } elseif ($this->selected_lokasi) {
+            if ($this->selected_lokasi === 'workshop' || $this->selected_lokasi === 'proyek') {
+                // ambil nama-nama yang pernah absen
+                $nama_yang_pernah_absen = Absensi::whereBetween('tanggal', [$this->start_date, $this->end_date])
+                    ->distinct()
+                    ->pluck('name');
+
+                // filter karyawan yang lokasinya cocok
+                $karyawanQuery = Karyawan::where('lokasi', $this->selected_lokasi);
+
+                if ($this->selected_lokasi === 'proyek' && $this->selected_proyek) {
+                    $karyawanQuery->where('jenis_proyek', $this->selected_proyek);
+                }
+
+                $nama_karyawan = $karyawanQuery
+                    ->whereIn('nama', $nama_yang_pernah_absen)
+                    ->pluck('nama');
+
+                if ($nama_karyawan->isNotEmpty()) {
+                    $query = Absensi::whereBetween('tanggal', [$this->start_date, $this->end_date])
+                        ->whereIn('name', $nama_karyawan);
+
+                    $this->data_harian = $query->orderBy('tanggal')->get();
+
+                    $this->rekap = (new AbsensiRekapService())->rekapSemuaUser(
+                        $this->start_date,
+                        $this->end_date,
+                        $nama_karyawan
+                    );
+                } else {
+                    $this->data_harian = [];
+                    $this->rekap = [];
+                }
+            } else {
+                // logika default
+                $karyawanQuery = Karyawan::where('lokasi', $this->selected_lokasi);
+                $nama_karyawan = $karyawanQuery->pluck('nama');
+
+                if ($nama_karyawan->isNotEmpty()) {
+                    $query = Absensi::whereBetween('tanggal', [$this->start_date, $this->end_date])
+                        ->whereIn('name', $nama_karyawan);
+
+                    $this->data_harian = $query->orderBy('tanggal')->get();
+
+                    $this->rekap = (new AbsensiRekapService())->rekapSemuaUser(
+                        $this->start_date,
+                        $this->end_date,
+                        $nama_karyawan
+                    );
+                } else {
+                    $this->data_harian = [];
+                    $this->rekap = [];
+                }
+            }
         }
     }
 }

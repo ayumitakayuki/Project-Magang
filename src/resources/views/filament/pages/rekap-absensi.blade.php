@@ -80,104 +80,106 @@
         </form>
 
         @if (!empty($data_harian))
-        <div class="flex flex-col lg:flex-row gap-4 items-start mb-6">
-        {{-- BAGIAN KIRI: IDENTITAS --}}
-        <div class="bg-white border border-gray-300 rounded-lg px-2 py-1 shadow-sm text-sm w-48 leading-tight">
-            <div class="space-y-1">
-                <div>
-                    <span class="text-gray-500">ID Karyawan</span><br>
-                    <span class="text-gray-800">{{ $selected_id ?? '-' }}</span>
-                </div>
-                <div>
-                    <span class="text-gray-500">Nama Karyawan</span><br>
-                    <span class="text-gray-800">{{ $selected_name ?? '-' }}</span>
-                </div>
-                <div>
-                    <span class="text-gray-500">Periode</span><br>
-                    <span class="text-gray-900 font-semibold">
-                        {{ \Carbon\Carbon::parse($start_date)->format('d-m-Y') }}
-                        s/d
-                        {{ \Carbon\Carbon::parse($end_date)->format('d-m-Y') }}
-                    </span>
-                </div>
-                <div>
-                    <span class="text-gray-500">Status</span><br>
-                    <span class="text-gray-800">{{ $status_karyawan ?? '-' }}</span>
-                </div>
-                <div>
-                    <span class="text-gray-500">Lokasi</span><br>
-                    <span class="text-gray-800">{{ $selected_lokasi ?? '-' }}</span>
-                </div>
+        @php
+            $nama_karyawan_unik = $data_harian->pluck('name')->unique();
+        @endphp
 
-                @if ($selected_lokasi === 'proyek')
-                        <div>
-                            <span class="text-gray-500">Jenis Proyek</span><br>
-                            <span class="text-gray-800">{{ $selected_proyek ?? '-' }}</span>
+        <div>
+            @foreach ($nama_karyawan_unik as $nama_karyawan)
+                @php
+                    $data_karyawan = \App\Models\Karyawan::where('nama', $nama_karyawan)->first();
+                    $data_absensi_karyawan = $data_harian->where('name', $nama_karyawan);
+                @endphp
+
+                <div class="flex flex-col lg:flex-row gap-4 items-start mb-6">
+                    {{-- BAGIAN KIRI: IDENTITAS --}}
+                    <div class="bg-white border border-gray-300 rounded-lg px-2 py-1 shadow-sm text-sm w-48 leading-tight">
+                        <div class="space-y-1">
+                            <div>
+                                <span class="text-gray-500">ID Karyawan</span><br>
+                                <span class="text-gray-800">{{ $data_karyawan->id_karyawan ?? '-' }}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500">Nama Karyawan</span><br>
+                                <span class="text-gray-800">{{ $nama_karyawan }}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500">Periode</span><br>
+                                <span class="text-gray-900 font-semibold">
+                                    {{ \Carbon\Carbon::parse($start_date)->format('d-m-Y') }}
+                                    s/d
+                                    {{ \Carbon\Carbon::parse($end_date)->format('d-m-Y') }}
+                                </span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500">Status</span><br>
+                                <span class="text-gray-800">{{ $data_karyawan->status ?? '-' }}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500">Lokasi</span><br>
+                                <span class="text-gray-800">{{ $data_karyawan->lokasi ?? '-' }}</span>
+                            </div>
+
+                            @if ($data_karyawan?->lokasi === 'proyek')
+                                <div>
+                                    <span class="text-gray-500">Jenis Proyek</span><br>
+                                    <span class="text-gray-800">{{ $data_karyawan->jenis_proyek ?? '-' }}</span>
+                                </div>
+                            @endif
                         </div>
-                @endif
-            </div>
-        </div>
-            {{-- BAGIAN KANAN: TABEL --}}
-            <div class="w-full lg:w-2/3 overflow-x-auto">
-                <table class="w-full text-sm text-center border border-black table-fixed bg-white shadow-md">
-                    <thead>
-                        <tr class="bg-gray-100">
-                            <th class="border px-5 py-1">Tanggal</th>
-                            <th class="border px-2 py-1">Masuk Pagi</th>
-                            <th class="border px-2 py-1">Keluar Siang</th>
-                            <th class="border px-2 py-1">Masuk Siang</th>
-                            <th class="border px-2 py-1">Pulang Kerja</th>
-                            <th class="border px-2 py-1">Masuk Lembur</th>
-                            <th class="border px-2 py-1">Pulang Lembur</th>
-                            <th class="border px-5 py-1">SJ</th>
-                            <th class="border px-2 py-1">Sabtu</th>
-                            <th class="border px-2 py-1">Minggu</th>
-                            <th class="border px-2 py-1">Hari Besar</th>
-                            <th class="border px-2 py-1">Tidak Masuk</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($data_harian as $absen)
-                            @php
-                                $tanggal = \Carbon\Carbon::parse($absen->tanggal)->format('Y-m-d');
-                                $rekap_tanggal = $rekap['per_tanggal'][$tanggal] ?? [
-                                    'sj' => '-',
-                                    'sabtu' => '-',
-                                    'minggu' => '-',
-                                    'hari_besar' => '-',
-                                    'tidak_masuk' => '-',
-                                ];
-                            @endphp
-                            <tr>
-                                <td class="border px-2 py-1">{{ \Carbon\Carbon::parse($absen->tanggal)->format('d-m-Y') }}</td>
-                                <td class="border px-2 py-1">
-                                    {{ $absen->masuk_pagi ? \Carbon\Carbon::parse($absen->masuk_pagi)->format('H:i') : '-' }}
-                                </td>
-                                <td class="border px-2 py-1">
-                                    {{ $absen->keluar_siang ? \Carbon\Carbon::parse($absen->keluar_siang)->format('H:i') : '-' }}
-                                </td>
-                                <td class="border px-2 py-1">
-                                    {{ $absen->masuk_siang ? \Carbon\Carbon::parse($absen->masuk_siang)->format('H:i') : '-' }}
-                                </td>
-                                <td class="border px-2 py-1">
-                                    {{ $absen->pulang_kerja ? \Carbon\Carbon::parse($absen->pulang_kerja)->format('H:i') : '-' }}
-                                </td>
-                                <td class="border px-2 py-1">
-                                    {{ $absen->masuk_lembur ? \Carbon\Carbon::parse($absen->masuk_lembur)->format('H:i') : '-' }}
-                                </td>
-                                <td class="border px-2 py-1">
-                                    {{ $absen->pulang_lembur ? \Carbon\Carbon::parse($absen->pulang_lembur)->format('H:i') : '-' }}
-                                </td>
-                                <td class="border px-2 py-1">{{ $rekap_tanggal['sj'] }}</td>
-                                <td class="border px-2 py-1">{{ $rekap_tanggal['sabtu'] }}</td>
-                                <td class="border px-2 py-1">{{ $rekap_tanggal['minggu'] }}</td>
-                                <td class="border px-2 py-1">{{ $rekap_tanggal['hari_besar'] }}</td>
-                                <td class="border px-2 py-1">{{ $rekap_tanggal['tidak_masuk'] }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
+                    </div>
+
+                    {{-- BAGIAN KANAN: TABEL --}}
+                    <div class="w-full lg:w-2/3 overflow-x-auto">
+                        <table class="w-full text-sm text-center border border-black table-fixed bg-white shadow-md">
+                            <thead>
+                                <tr class="bg-gray-100">
+                                    <th class="border px-5 py-1">Tanggal</th>
+                                    <th class="border px-2 py-1">Masuk Pagi</th>
+                                    <th class="border px-2 py-1">Keluar Siang</th>
+                                    <th class="border px-2 py-1">Masuk Siang</th>
+                                    <th class="border px-2 py-1">Pulang Kerja</th>
+                                    <th class="border px-2 py-1">Masuk Lembur</th>
+                                    <th class="border px-2 py-1">Pulang Lembur</th>
+                                    <th class="border px-5 py-1">SJ</th>
+                                    <th class="border px-2 py-1">Sabtu</th>
+                                    <th class="border px-2 py-1">Minggu</th>
+                                    <th class="border px-2 py-1">Hari Besar</th>
+                                    <th class="border px-2 py-1">Tidak Masuk</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($data_absensi_karyawan as $absen)
+                                    @php
+                                        $tanggal = \Carbon\Carbon::parse($absen->tanggal)->format('Y-m-d');
+                                        $rekap_tanggal = $rekap['per_tanggal'][$tanggal] ?? [
+                                            'sj' => '-',
+                                            'sabtu' => '-',
+                                            'minggu' => '-',
+                                            'hari_besar' => '-',
+                                            'tidak_masuk' => '-',
+                                        ];
+                                    @endphp
+                                    <tr>
+                                        <td class="border px-2 py-1">{{ \Carbon\Carbon::parse($absen->tanggal)->format('d-m-Y') }}</td>
+                                        <td class="border px-2 py-1">{{ $absen->masuk_pagi ? \Carbon\Carbon::parse($absen->masuk_pagi)->format('H:i') : '-' }}</td>
+                                        <td class="border px-2 py-1">{{ $absen->keluar_siang ? \Carbon\Carbon::parse($absen->keluar_siang)->format('H:i') : '-' }}</td>
+                                        <td class="border px-2 py-1">{{ $absen->masuk_siang ? \Carbon\Carbon::parse($absen->masuk_siang)->format('H:i') : '-' }}</td>
+                                        <td class="border px-2 py-1">{{ $absen->pulang_kerja ? \Carbon\Carbon::parse($absen->pulang_kerja)->format('H:i') : '-' }}</td>
+                                        <td class="border px-2 py-1">{{ $absen->masuk_lembur ? \Carbon\Carbon::parse($absen->masuk_lembur)->format('H:i') : '-' }}</td>
+                                        <td class="border px-2 py-1">{{ $absen->pulang_lembur ? \Carbon\Carbon::parse($absen->pulang_lembur)->format('H:i') : '-' }}</td>
+                                        <td class="border px-2 py-1">{{ $rekap_tanggal['sj'] }}</td>
+                                        <td class="border px-2 py-1">{{ $rekap_tanggal['sabtu'] }}</td>
+                                        <td class="border px-2 py-1">{{ $rekap_tanggal['minggu'] }}</td>
+                                        <td class="border px-2 py-1">{{ $rekap_tanggal['hari_besar'] }}</td>
+                                        <td class="border px-2 py-1">{{ $rekap_tanggal['tidak_masuk'] }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            @endforeach
         </div>
     @endif
     </x-filament::card>

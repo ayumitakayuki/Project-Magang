@@ -80,7 +80,7 @@ class AbsensiRekapService
                 'sabtu' => $kategori === 'sabtu' ? $jumlahJam . ' jam' : '-',
                 'minggu' => $kategori === 'minggu' ? $jumlahJam . ' jam' : '-',
                 'hari_besar' => $kategori === 'hari_besar' ? $jumlahJam . ' jam' : '-',
-                'tidak_masuk' => $kategori === 'tidak_masuk' ? '1 hari' : '-',
+                'tidak_masuk' => $kategori === 'tidak_masuk' ? '8 jam' : '-',
             ];
         }
 
@@ -93,9 +93,20 @@ class AbsensiRekapService
         return $rekap;
     }
 
-    public function rekapSemuaUser($start, $end)
+    public function rekapSemuaUser($start, $end, $nama_karyawan = null)
     {
-        $data = Absensi::whereBetween('tanggal', [$start, $end])->get();
+        $query = Absensi::whereBetween('tanggal', [$start, $end]);
+
+        if ($nama_karyawan) {
+            $query->whereIn('name', $nama_karyawan);
+        }
+
+        // Group by nama → tanggal
+        $data = $query->get()->groupBy(['name', 'tanggal']);
+
+        // Ambil daftar tanggal merah (hari besar)
+        $liburResponse = Http::get('https://raw.githubusercontent.com/guangrei/APIHariLibur_V2/main/holidays.json');
+        $libur = $liburResponse->successful() ? $liburResponse->json() : [];
 
         $rekap = [
             'per_tanggal' => [],
@@ -106,14 +117,79 @@ class AbsensiRekapService
             'tidak_masuk' => 0,
         ];
 
-        foreach ($data as $absen) {
-            $tanggal = $absen->tanggal;
-            $rekap['per_tanggal'][$tanggal]['sj'] ??= 0;
-            $rekap['per_tanggal'][$tanggal]['sj'] += $absen->jam_sj ?? 0;
-            // dan seterusnya sesuai format jam kerja kamu
+        $period = new \DatePeriod(
+            new \DateTime($start),
+            new \DateInterval('P1D'),
+            (new \DateTime($end))->modify('+1 day')
+        );
+
+        foreach ($period as $date) {
+            $tanggalStr = $date->format('Y-m-d');
+            $dayName = $date->format('l');
+            $isLibur = array_key_exists($tanggalStr, $libur);
+
+            // Loop semua karyawan yang pernah absen
+            foreach ($data as $nama => $absensiHarian) {
+                $record = $absensiHarian->get($tanggalStr)?->first();
+
+                $hasData = $record && (
+                    $record->masuk_pagi ||
+                    $record->keluar_siang ||
+                    $record->masuk_siang ||
+                    $record->pulang_kerja ||
+                    $record->masuk_lembur ||
+                    $record->pulang_lembur
+                );
+
+                $kategori = null;
+                if (!$hasData) {
+                    $rekap['tidak_masuk']++;
+                    $kategori = 'tidak_masuk';
+                    $jumlahJam = '-';
+                } elseif ($isLibur) {
+                    $jumlahJam = $this->hitungJamKerja($record);
+                    $rekap['hari_besar'] += $jumlahJam;
+                    $kategori = 'hari_besar';
+                } elseif ($dayName == 'Saturday') {
+                    $jumlahJam = $this->hitungJamKerja($record);
+                    $rekap['sabtu'] += $jumlahJam;
+                    $kategori = 'sabtu';
+                } elseif ($dayName == 'Sunday') {
+                    $jumlahJam = $this->hitungJamKerja($record);
+                    $rekap['minggu'] += $jumlahJam;
+                    $kategori = 'minggu';
+                } else {
+                    $jumlahJam = $this->hitungJamLemburSaja($record);
+                    $rekap['sj'] += $jumlahJam;
+                    $kategori = 'sj';
+                }
+
+                $rekap['per_tanggal'][$tanggalStr] = [
+                    'sj' => $kategori === 'sj' ? $jumlahJam . ' jam' : '-',
+                    'sabtu' => $kategori === 'sabtu' ? $jumlahJam . ' jam' : '-',
+                    'minggu' => $kategori === 'minggu' ? $jumlahJam . ' jam' : '-',
+                    'hari_besar' => $kategori === 'hari_besar' ? $jumlahJam . ' jam' : '-',
+                    'tidak_masuk' => $kategori === 'tidak_masuk' ? '8 jam' : '-',
+                ];
+            }
         }
 
+        // Format total akhir
+        $rekap['sj'] .= ' jam';
+        $rekap['sabtu'] .= ' jam';
+        $rekap['minggu'] .= ' jam';
+        $rekap['hari_besar'] .= ' jam';
+
         return $rekap;
+    }
+
+    private function hitungJamLemburSaja(?Absensi $absensi): int
+    {
+        if (!$absensi || !$absensi->masuk_lembur || !$absensi->pulang_lembur) return 0;
+
+        $start = Carbon::createFromFormat('H:i:s', $absensi->masuk_lembur);
+        $end = Carbon::createFromFormat('H:i:s', $absensi->pulang_lembur);
+        return intdiv($start->diffInMinutes($end), 60); // hanya lembur
     }
 
     private function hitungJamKerja(?Absensi $absensi): int
@@ -137,15 +213,6 @@ class AbsensiRekapService
             }
         }
 
-        return intdiv($totalMinutes, 60); // konversi ke jam
-    }
-
-    private function hitungJamLemburSaja(?Absensi $absensi): int
-    {
-        if (!$absensi || !$absensi->masuk_lembur || !$absensi->pulang_lembur) return 0;
-
-        $start = Carbon::createFromFormat('H:i:s', $absensi->masuk_lembur);
-        $end = Carbon::createFromFormat('H:i:s', $absensi->pulang_lembur);
-        return intdiv($start->diffInMinutes($end), 60); // hanya lembur
+        return intdiv($totalMinutes, 60);
     }
 }
