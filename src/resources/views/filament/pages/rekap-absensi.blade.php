@@ -2,6 +2,7 @@
     <x-filament::card class="bg-blue-100 rounded-xl p-6">
         {{-- JUDUL + SHOW ALL --}}
          <div class="flex gap-2 items-center">
+            <form method="GET" class="mb-6 flex flex-wrap items-center gap-2">
             <select name="status_karyawan"
                 onchange="location = this.value"
                 class="rounded-lg px-3 py-1 bg-blue-200 text-sm border border-blue-500">
@@ -78,6 +79,7 @@
                 Filter
             </button>
         </form>
+        </form>
 
         @if (!empty($data_harian))
         @php
@@ -129,56 +131,131 @@
                         </div>
                     </div>
 
-                    {{-- BAGIAN KANAN: TABEL --}}
-                    <div class="w-full lg:w-2/3 overflow-x-auto">
-                        <table class="w-full text-sm text-center border border-black table-fixed bg-white shadow-md">
-                            <thead>
-                                <tr class="bg-gray-100">
-                                    <th class="border px-5 py-1">Tanggal</th>
-                                    <th class="border px-2 py-1">Masuk Pagi</th>
-                                    <th class="border px-2 py-1">Keluar Siang</th>
-                                    <th class="border px-2 py-1">Masuk Siang</th>
-                                    <th class="border px-2 py-1">Pulang Kerja</th>
-                                    <th class="border px-2 py-1">Masuk Lembur</th>
-                                    <th class="border px-2 py-1">Pulang Lembur</th>
-                                    <th class="border px-5 py-1">SJ</th>
-                                    <th class="border px-2 py-1">Sabtu</th>
-                                    <th class="border px-2 py-1">Minggu</th>
-                                    <th class="border px-2 py-1">Hari Besar</th>
-                                    <th class="border px-2 py-1">Tidak Masuk</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($data_absensi_karyawan as $absen)
-                                    @php
-                                        $tanggal = \Carbon\Carbon::parse($absen->tanggal)->format('Y-m-d');
-                                        $rekap_tanggal = $rekap['per_tanggal'][$tanggal] ?? [
-                                            'sj' => '-',
-                                            'sabtu' => '-',
-                                            'minggu' => '-',
-                                            'hari_besar' => '-',
-                                            'tidak_masuk' => '-',
-                                        ];
-                                    @endphp
-                                    <tr>
-                                        <td class="border px-2 py-1">{{ \Carbon\Carbon::parse($absen->tanggal)->format('d-m-Y') }}</td>
-                                        <td class="border px-2 py-1">{{ $absen->masuk_pagi ? \Carbon\Carbon::parse($absen->masuk_pagi)->format('H:i') : '-' }}</td>
-                                        <td class="border px-2 py-1">{{ $absen->keluar_siang ? \Carbon\Carbon::parse($absen->keluar_siang)->format('H:i') : '-' }}</td>
-                                        <td class="border px-2 py-1">{{ $absen->masuk_siang ? \Carbon\Carbon::parse($absen->masuk_siang)->format('H:i') : '-' }}</td>
-                                        <td class="border px-2 py-1">{{ $absen->pulang_kerja ? \Carbon\Carbon::parse($absen->pulang_kerja)->format('H:i') : '-' }}</td>
-                                        <td class="border px-2 py-1">{{ $absen->masuk_lembur ? \Carbon\Carbon::parse($absen->masuk_lembur)->format('H:i') : '-' }}</td>
-                                        <td class="border px-2 py-1">{{ $absen->pulang_lembur ? \Carbon\Carbon::parse($absen->pulang_lembur)->format('H:i') : '-' }}</td>
-                                        <td class="border px-2 py-1">{{ $rekap_tanggal['sj'] }}</td>
-                                        <td class="border px-2 py-1">{{ $rekap_tanggal['sabtu'] }}</td>
-                                        <td class="border px-2 py-1">{{ $rekap_tanggal['minggu'] }}</td>
-                                        <td class="border px-2 py-1">{{ $rekap_tanggal['hari_besar'] }}</td>
-                                        <td class="border px-2 py-1">{{ $rekap_tanggal['tidak_masuk'] }}</td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+        {{-- BAGIAN KANAN: 2 TABEL (HORIZONTAL) --}}
+        <div class="w-full lg:w-2/3 flex flex-row gap-2">
+            {{-- TABEL DETAIL ABSENSI --}}
+            <div class="flex-1">
+                    <table class="w-full text-sm text-center border border-black table-fixed bg-white shadow-md">
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="border border-black px-5 py-1">Tanggal</th>
+                        <th class="border border-black px-2 py-1">Masuk Pagi</th>
+                        <th class="border border-black px-2 py-1">Keluar Siang</th>
+                        <th class="border border-black px-2 py-1">Masuk Siang</th>
+                        <th class="border border-black px-2 py-1">Pulang Kerja</th>
+                        <th class="border border-black px-2 py-1">Masuk Lembur</th>
+                        <th class="border border-black px-2 py-1">Pulang Lembur</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($data_absensi_karyawan as $absen)
+                        <tr>
+                            <td class="border border-black px-2 py-1">{{ \Carbon\Carbon::parse($absen->tanggal)->format('d-m-Y') }}</td>
+                            <td class="border border-black px-2 py-1">
+                                {{ $absen->masuk_pagi ? \Carbon\Carbon::parse($absen->masuk_pagi)->format('H:i') : '-' }}
+                            </td>
+                            <td class="border border-black px-2 py-1">
+                                {{ $absen->keluar_siang ? \Carbon\Carbon::parse($absen->keluar_siang)->format('H:i') : '-' }}
+                            </td>
+                            <td class="border border-black px-2 py-1">
+                                {{ $absen->masuk_siang ? \Carbon\Carbon::parse($absen->masuk_siang)->format('H:i') : '-' }}
+                            </td>
+                            <td class="border border-black px-2 py-1">
+                                {{ $absen->pulang_kerja ? \Carbon\Carbon::parse($absen->pulang_kerja)->format('H:i') : '-' }}
+                            </td>
+                            <td class="border border-black px-2 py-1">
+                                {{ $absen->masuk_lembur ? \Carbon\Carbon::parse($absen->masuk_lembur)->format('H:i') : '-' }}
+                            </td>
+                            <td class="border border-black px-2 py-1">
+                                {{ $absen->pulang_lembur ? \Carbon\Carbon::parse($absen->pulang_lembur)->format('H:i') : '-' }}
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+
+        {{-- TABEL REKAP JAM --}}
+        <div class="flex-1">
+            <table class="w-full text-sm text-center border border-black table-fixed bg-white shadow-md">
+                <thead>
+                    @php
+                        $isHarianLepas = strtolower($data_karyawan->status ?? '') === 'harian lepas';
+                        $jumlahHari = 0;
+
+                        foreach ($data_absensi_karyawan as $absen) {
+                            $jumlahHari++;
+                        }
+                    @endphp
+                    <tr class="bg-gray-100">
+                        <th class="border px-5 py-1">Tanggal</th>
+                        <th class="border px-2 py-1">SJ</th>
+                        <th class="border px-2 py-1">Sabtu</th>
+                        <th class="border px-2 py-1">Minggu</th>
+                        <th class="border px-2 py-1">Hari Besar</th>
+                        <th class="border px-2 py-1">Tidak Masuk</th>
+                        @if ($isHarianLepas)
+                            <th class="border px-2 py-1">Jumlah Hari</th>
+                        @endif
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($data_absensi_karyawan as $absen)
+                        @php
+                            $tanggal = \Carbon\Carbon::parse($absen->tanggal)->format('Y-m-d');
+                            $rekap_tanggal = $rekap['per_tanggal'][$tanggal] ?? [
+                                'sj' => '-',
+                                'sabtu' => '-',
+                                'minggu' => '-',
+                                'hari_besar' => '-',
+                                'tidak_masuk' => '-',
+                            ];
+                        @endphp
+                        <tr>
+                            <td class="border px-2 py-1">{{ \Carbon\Carbon::parse($absen->tanggal)->format('d-m-Y') }}</td>
+                            <td class="border px-2 py-1">{{ $rekap_tanggal['sj'] }}</td>
+                            <td class="border px-2 py-1">{{ $rekap_tanggal['sabtu'] }}</td>
+                            <td class="border px-2 py-1">{{ $rekap_tanggal['minggu'] }}</td>
+                            <td class="border px-2 py-1">{{ $rekap_tanggal['hari_besar'] }}</td>
+                            <td class="border px-2 py-1">{{ $rekap_tanggal['tidak_masuk'] }}</td>
+                        </tr>
+                    @endforeach
+
+                    {{-- TOTAL per kolom --}}
+                    <tr class="bg-gray-200 font-semibold">
+                        <td class="border px-2 py-1 text-right">Total</td>
+                        <td class="border px-2 py-1">{{ $rekap['sj'] }}</td>
+                        <td class="border px-2 py-1">{{ $rekap['sabtu'] }}</td>
+                        <td class="border px-2 py-1">{{ $rekap['minggu'] }}</td>
+                        <td class="border px-2 py-1">{{ $rekap['hari_besar'] }}</td>
+                        <td class="border px-2 py-1">{{ $rekap['tidak_masuk'] }}</td>
+                        @if ($isHarianLepas)
+                            <td class="border px-2 py-1">{{ $jumlahHari }} hari</td>
+                        @endif
+                    </tr>
+
+                    {{-- GRAND TOTAL --}}
+                    @php
+                        $grandTotal = 0;
+                        $fields = ['sj', 'sabtu', 'minggu', 'hari_besar', 'tidak_masuk'];
+
+                        foreach ($fields as $field) {
+                            $value = str_replace(' jam', '', $rekap[$field]);
+                            if (is_numeric($value)) {
+                                $grandTotal += (int) $value;
+                            }
+                        }
+                    @endphp
+
+                    <tr class="bg-green-200 font-semibold">
+                        <td class="border px-2 py-1 text-right">Grand Total</td>
+                        <td colspan="5" class="border px-2 py-1 text-center">{{ $grandTotal }} jam</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
             @endforeach
         </div>
     @endif

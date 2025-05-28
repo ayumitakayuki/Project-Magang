@@ -107,8 +107,12 @@ class RekapAbsensi extends Page
             $this->rekap = (new AbsensiRekapService())->rekapSemuaUser(
                 $this->start_date,
                 $this->end_date,
-                $nama_karyawan
+                $nama_karyawan,
+                $this->status_karyawan,
+                $this->selected_lokasi,
+                $this->selected_proyek
             );
+
         } elseif ($this->selected_name) {
             // logika per nama spesifik
             $this->rekap = (new AbsensiRekapService())->rekapUntukUser(

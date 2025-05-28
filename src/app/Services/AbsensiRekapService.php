@@ -53,34 +53,34 @@ class AbsensiRekapService
             $kategori = null;
 
             if (!$hasData) {
-                $rekap['tidak_masuk']++;
+                $jumlahJam = 8; // diasumsikan 8 jam default
+                $rekap['tidak_masuk'] += $jumlahJam;
                 $kategori = 'tidak_masuk';
-                $jumlahJam = '-';
             } elseif ($isLibur) {
-                $jumlahJam = $this->hitungJamKerja($record); // full
+                $jumlahJam = $this->hitungJamKerja($record);
                 $rekap['hari_besar'] += $jumlahJam;
                 $kategori = 'hari_besar';
             } elseif ($dayName == 'Saturday') {
-                $jumlahJam = $this->hitungJamKerja($record); // full
+                $jumlahJam = $this->hitungJamKerja($record);
                 $rekap['sabtu'] += $jumlahJam;
                 $kategori = 'sabtu';
             } elseif ($dayName == 'Sunday') {
-                $jumlahJam = $this->hitungJamKerja($record); // full
+                $jumlahJam = $this->hitungJamKerja($record);
                 $rekap['minggu'] += $jumlahJam;
                 $kategori = 'minggu';
             } else {
-                // S-J → hanya lembur
-                $jumlahJam = $this->hitungJamLemburSaja($record); // hanya lembur
+                $jumlahJam = $this->hitungJamLemburSaja($record);
                 $rekap['sj'] += $jumlahJam;
                 $kategori = 'sj';
             }
 
+            // Format untuk ditampilkan
             $rekap['per_tanggal'][$tanggalStr] = [
                 'sj' => $kategori === 'sj' ? $jumlahJam . ' jam' : '-',
                 'sabtu' => $kategori === 'sabtu' ? $jumlahJam . ' jam' : '-',
                 'minggu' => $kategori === 'minggu' ? $jumlahJam . ' jam' : '-',
                 'hari_besar' => $kategori === 'hari_besar' ? $jumlahJam . ' jam' : '-',
-                'tidak_masuk' => $kategori === 'tidak_masuk' ? '8 jam' : '-',
+                'tidak_masuk' => $kategori === 'tidak_masuk' ? $jumlahJam . '8 jam' : '-',
             ];
         }
 
@@ -93,12 +93,25 @@ class AbsensiRekapService
         return $rekap;
     }
 
-    public function rekapSemuaUser($start, $end, $nama_karyawan = null)
+    public function rekapSemuaUser($start, $end, $nama_karyawan = null, $status_karyawan = null, $lokasi = null, $jenis_proyek = null)
     {
-        $query = Absensi::whereBetween('tanggal', [$start, $end]);
+        $query = Absensi::whereBetween('tanggal', [$start, $end])
+            ->with('karyawan');
 
         if ($nama_karyawan) {
             $query->whereIn('name', $nama_karyawan);
+        }
+
+        if ($status_karyawan && $status_karyawan != 'all') {
+            $query->whereHas('karyawan', fn($q) => $q->where('status', $status_karyawan));
+        }
+
+        if ($lokasi) {
+            $query->whereHas('karyawan', fn($q) => $q->where('lokasi', $lokasi));
+        }
+
+        if ($jenis_proyek) {
+            $query->whereHas('karyawan', fn($q) => $q->where('jenis_proyek', $jenis_proyek));
         }
 
         // Group by nama → tanggal
