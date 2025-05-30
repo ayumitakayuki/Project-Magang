@@ -75,7 +75,7 @@ class AbsensiRekapService
             }
 
             // Format untuk ditampilkan
-            $rekap['per_tanggal'][$tanggalStr] = [
+            $rekap['per_tanggal'][$nama][$tanggalStr] = [
                 'sj' => $kategori === 'sj' ? $jumlahJam . ' jam' : '-',
                 'sabtu' => $kategori === 'sabtu' ? $jumlahJam . ' jam' : '-',
                 'minggu' => $kategori === 'minggu' ? $jumlahJam . ' jam' : '-',
@@ -177,7 +177,7 @@ class AbsensiRekapService
                     $kategori = 'sj';
                 }
 
-                $rekap['per_tanggal'][$tanggalStr] = [
+                $rekap['per_tanggal'][$nama][$tanggalStr] = [
                     'sj' => $kategori === 'sj' ? $jumlahJam . ' jam' : '-',
                     'sabtu' => $kategori === 'sabtu' ? $jumlahJam . ' jam' : '-',
                     'minggu' => $kategori === 'minggu' ? $jumlahJam . ' jam' : '-',

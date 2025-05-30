@@ -203,7 +203,7 @@
                     @foreach ($data_absensi_karyawan as $absen)
                         @php
                             $tanggal = \Carbon\Carbon::parse($absen->tanggal)->format('Y-m-d');
-                            $rekap_tanggal = $rekap['per_tanggal'][$tanggal] ?? [
+                            $rekap_tanggal = $rekap['per_tanggal'][$nama_karyawan][$tanggal] ?? [
                                 'sj' => '-',
                                 'sabtu' => '-',
                                 'minggu' => '-',
