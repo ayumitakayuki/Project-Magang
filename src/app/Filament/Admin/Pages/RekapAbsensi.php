@@ -39,7 +39,7 @@ class RekapAbsensi extends Page
         $keyword = $request->query('karyawan_keyword');
         $this->selected_lokasi = $request->query('lokasi');
         $this->selected_proyek = $request->query('proyek');
-        $this->show_all = $request->query('show_all') === '1';
+        $this->show_all = $request->has('show_all') ? $request->query('show_all') === '1' : true;
 
         if ($keyword) {
             $matched = Karyawan::where('id_karyawan', $keyword)
@@ -152,7 +152,10 @@ class RekapAbsensi extends Page
                     $this->rekap = (new AbsensiRekapService())->rekapSemuaUser(
                         $this->start_date,
                         $this->end_date,
-                        $nama_karyawan
+                        $nama_karyawan,
+                        $this->status_karyawan,
+                        $this->selected_lokasi,
+                        $this->selected_proyek
                     );
                 } else {
                     $this->data_harian = [];
@@ -172,7 +175,10 @@ class RekapAbsensi extends Page
                     $this->rekap = (new AbsensiRekapService())->rekapSemuaUser(
                         $this->start_date,
                         $this->end_date,
-                        $nama_karyawan
+                        $nama_karyawan,
+                        $this->status_karyawan,
+                        $this->selected_lokasi,
+                        $this->selected_proyek
                     );
                 } else {
                     $this->data_harian = [];

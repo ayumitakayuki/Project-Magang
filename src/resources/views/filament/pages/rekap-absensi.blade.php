@@ -94,51 +94,58 @@
                 @endphp
 
                 <div class="flex flex-col lg:flex-row gap-4 items-start mb-6">
-                    {{-- BAGIAN KIRI: IDENTITAS --}}
-                    <div class="bg-white border border-gray-300 rounded-lg px-2 py-1 shadow-sm text-sm w-48 leading-tight">
-                        <div class="space-y-1">
-                            <div>
-                                <span class="text-gray-500">ID Karyawan</span><br>
-                                <span class="text-gray-800">{{ $data_karyawan->id_karyawan ?? '-' }}</span>
-                            </div>
-                            <div>
-                                <span class="text-gray-500">Nama Karyawan</span><br>
-                                <span class="text-gray-800">{{ $nama_karyawan }}</span>
-                            </div>
-                            <div>
-                                <span class="text-gray-500">Periode</span><br>
-                                <span class="text-gray-900 font-semibold">
-                                    {{ \Carbon\Carbon::parse($start_date)->format('d-m-Y') }}
-                                    s/d
-                                    {{ \Carbon\Carbon::parse($end_date)->format('d-m-Y') }}
-                                </span>
-                            </div>
-                            <div>
-                                <span class="text-gray-500">Status</span><br>
-                                <span class="text-gray-800">{{ $data_karyawan->status ?? '-' }}</span>
-                            </div>
-                            <div>
-                                <span class="text-gray-500">Lokasi</span><br>
-                                <span class="text-gray-800">{{ $data_karyawan->lokasi ?? '-' }}</span>
-                            </div>
+                {{-- BAGIAN KIRI: IDENTITAS --}}
+                <div class="bg-white border border-gray-300 rounded-lg px-2 py-1 shadow-sm text-sm w-48 leading-tight">
+                    <div class="space-y-1">
+                        <div>
+                            <span class="text-gray-500">ID Karyawan</span><br>
+                            <span class="text-gray-800">{{ $data_karyawan->id_karyawan ?? '-' }}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">Nama Karyawan</span><br>
+                            <span class="text-gray-800">{{ $nama_karyawan }}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">Periode</span><br>
+                            <span class="text-gray-900 font-semibold">
+                                {{ \Carbon\Carbon::parse($start_date)->format('d-m-Y') }}
+                                s/d
+                                {{ \Carbon\Carbon::parse($end_date)->format('d-m-Y') }}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">Status</span><br>
+                            <span class="text-gray-800">{{ $data_karyawan->status ?? '-' }}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">Lokasi</span><br>
+                            <span class="text-gray-800">{{ $data_karyawan->lokasi ?? '-' }}</span>
+                        </div>
 
-                            @if ($data_karyawan?->lokasi === 'proyek')
-                                <div>
-                                    <span class="text-gray-500">Jenis Proyek</span><br>
-                                    <span class="text-gray-800">{{ $data_karyawan->jenis_proyek ?? '-' }}</span>
-                                </div>
-                            @endif
+                        @if ($data_karyawan?->lokasi === 'proyek')
+                            <div>
+                                <span class="text-gray-500">Jenis Proyek</span><br>
+                                <span class="text-gray-800">{{ $data_karyawan->jenis_proyek ?? '-' }}</span>
+                            </div>
+                        @endif
+                    </div>
+                    {{-- TOMBOL EXPORT EXCEL --}}
+                    <div class="mt-3">
+                        <a href="{{ url('/export-absensi?start_date=' . request('start_date') . '&end_date=' . request('end_date') . '&id_karyawan=' . $data_karyawan->id_karyawan) }}" 
+                        target="_blank"
+                        class="text-gray-500">
+                            Download Excel
+                            </a>
                         </div>
                     </div>
-
         {{-- BAGIAN KANAN: 2 TABEL (HORIZONTAL) --}}
         <div class="w-full lg:w-2/3 flex flex-row gap-2">
             {{-- TABEL DETAIL ABSENSI --}}
-            <div class="flex-1">
-                    <table class="w-full text-sm text-center border border-black table-fixed bg-white shadow-md">
+            <div class="flex-1 overflow-x-auto">
+                    <table class="custom-table">
                 <thead>
                     <tr class="bg-gray-100">
-                        <th class="border border-black px-5 py-1">Tanggal</th>
+                        <th class="tanggal">Tanggal</th>
                         <th class="border border-black px-2 py-1">Masuk Pagi</th>
                         <th class="border border-black px-2 py-1">Keluar Siang</th>
                         <th class="border border-black px-2 py-1">Masuk Siang</th>
@@ -148,9 +155,23 @@
                     </tr>
                 </thead>
                 <tbody>
+                    @php
+                        $totalTidakMasuk = 0;
+                        foreach ($data_absensi_karyawan as $absen) {
+                            $tanggal = \Carbon\Carbon::parse($absen->tanggal)->format('Y-m-d');
+                            $rekap_tanggal = $rekap['per_tanggal'][$nama_karyawan][$tanggal] ?? [];
+
+                            if (($rekap_tanggal['tidak_masuk'] ?? '-') !== '-') {
+                                // Ambil angka dari string '8 jam'
+                                $jam = intval($rekap_tanggal['tidak_masuk']);
+                                $totalTidakMasuk += $jam;
+                            }
+                        }
+                    @endphp
+
                     @foreach ($data_absensi_karyawan as $absen)
                         <tr>
-                            <td class="border border-black px-2 py-1">{{ \Carbon\Carbon::parse($absen->tanggal)->format('d-m-Y') }}</td>
+                            <td class="tanggal">{{ \Carbon\Carbon::parse($absen->tanggal)->format('d-m-Y') }}</td>
                             <td class="border border-black px-2 py-1">
                                 {{ $absen->masuk_pagi ? \Carbon\Carbon::parse($absen->masuk_pagi)->format('H:i') : '-' }}
                             </td>
@@ -175,27 +196,24 @@
             </table>
         </div>
 
-        {{-- TABEL REKAP JAM --}}
-        <div class="flex-1">
-            <table class="w-full text-sm text-center border border-black table-fixed bg-white shadow-md">
+        {{-- TABEL PERHITUNGAN JAM --}}
+        <div class="overflow-x-auto">
+            <table class="custom-table">
                 <thead>
                     @php
-                        $isHarianLepas = strtolower($data_karyawan->status ?? '') === 'harian lepas';
-                        $jumlahHari = 0;
-
-                        foreach ($data_absensi_karyawan as $absen) {
-                            $jumlahHari++;
-                        }
+                    $isHarianLepas = strtolower($data_karyawan->status ?? '') === 'harian lepas';
+                    $jumlahHari = app(\App\Services\AbsensiRekapService::class)->hitungJumlahHariKerja($rekap['per_tanggal'][$nama_karyawan] ?? []);
                     @endphp
+
                     <tr class="bg-gray-100">
-                        <th class="border px-5 py-1">Tanggal</th>
-                        <th class="border px-2 py-1">SJ</th>
-                        <th class="border px-2 py-1">Sabtu</th>
-                        <th class="border px-2 py-1">Minggu</th>
-                        <th class="border px-2 py-1">Hari Besar</th>
-                        <th class="border px-2 py-1">Tidak Masuk</th>
+                        <th class="tanggal">Tanggal</th>
+                        <th class="border border-black px-2 py-1">SJ</th>
+                        <th class="border border-black px-2 py-1">Sabtu</th>
+                        <th class="border border-black px-2 py-1">Minggu</th>
+                        <th class="border border-black px-2 py-1">Hari Besar</th>
+                        <th class="border border-black px-2 py-1">Tidak Masuk</th>
                         @if ($isHarianLepas)
-                            <th class="border px-2 py-1">Jumlah Hari</th>
+                            <th class="border border-black px-2 py-1">Jumlah Hari</th>
                         @endif
                     </tr>
                 </thead>
@@ -212,44 +230,74 @@
                             ];
                         @endphp
                         <tr>
-                            <td class="border px-2 py-1">{{ \Carbon\Carbon::parse($absen->tanggal)->format('d-m-Y') }}</td>
-                            <td class="border px-2 py-1">{{ $rekap_tanggal['sj'] }}</td>
-                            <td class="border px-2 py-1">{{ $rekap_tanggal['sabtu'] }}</td>
-                            <td class="border px-2 py-1">{{ $rekap_tanggal['minggu'] }}</td>
-                            <td class="border px-2 py-1">{{ $rekap_tanggal['hari_besar'] }}</td>
-                            <td class="border px-2 py-1">{{ $rekap_tanggal['tidak_masuk'] }}</td>
+                            <td class="tanggal">{{ \Carbon\Carbon::parse($absen->tanggal)->format('d-m-Y') }}</td>
+                            <td class="border border-black px-2 py-1">
+                                @if ($isHarianLepas)
+                                    -
+                                @else
+                                    {{ ($rekap_tanggal['sj'] ?? '-') }}
+                                @endif
+                            </td>
+                            <td class="border border-black px-2 py-1">{{ $rekap_tanggal['sabtu'] }}</td>
+                            <td class="border border-black px-2 py-1">{{ $rekap_tanggal['minggu'] }}</td>
+                            <td class="border border-black px-2 py-1">{{ $rekap_tanggal['hari_besar'] }}</td>
+                            <td class="border border-black px-2 py-1">{{ $rekap_tanggal['tidak_masuk'] }}</td>
+                            @if ($isHarianLepas)
+                                <td class="border border-black px-2 py-1">
+                                    {{ ($rekap_tanggal['sj'] ?? '-') !== '-' ? '1 hari' : '-' }}
+                                </td>
+                            @endif
                         </tr>
                     @endforeach
 
                     {{-- TOTAL per kolom --}}
                     <tr class="bg-gray-200 font-semibold">
-                        <td class="border px-2 py-1 text-right">Total</td>
-                        <td class="border px-2 py-1">{{ $rekap['sj'] }}</td>
-                        <td class="border px-2 py-1">{{ $rekap['sabtu'] }}</td>
-                        <td class="border px-2 py-1">{{ $rekap['minggu'] }}</td>
-                        <td class="border px-2 py-1">{{ $rekap['hari_besar'] }}</td>
-                        <td class="border px-2 py-1">{{ $rekap['tidak_masuk'] }}</td>
+                        <td class="border border-black px-2 py-1 text-right">Total</td>
+                        <td class="border border-black px-2 py-1">
+                            @if ($isHarianLepas)
+                                -
+                            @else
+                                {{ ($rekap['per_user'][$nama_karyawan]['sj'] ?? 0) . ' jam' }}
+                            @endif
+                        </td>
+                        <td class="border border-black px-2 py-1">{{ ($rekap['per_user'][$nama_karyawan]['sabtu'] ?? 0) . ' jam' }}</td>
+                        <td class="border border-black px-2 py-1">{{ ($rekap['per_user'][$nama_karyawan]['minggu'] ?? 0) . ' jam' }}</td>
+                        <td class="border border-black px-2 py-1">{{ ($rekap['per_user'][$nama_karyawan]['hari_besar'] ?? 0) . ' jam' }}</td>
+                        <td class="border border-black px-2 py-1">{{ $totalTidakMasuk }} jam</td>
                         @if ($isHarianLepas)
-                            <td class="border px-2 py-1">{{ $jumlahHari }} hari</td>
+                            <td class="border border-black px-2 py-1">{{ $jumlahHari }} hari</td>
                         @endif
                     </tr>
 
                     {{-- GRAND TOTAL --}}
                     @php
-                        $grandTotal = 0;
-                        $fields = ['sj', 'sabtu', 'minggu', 'hari_besar', 'tidak_masuk'];
+                        $grandTotalSabtu = $rekap['per_user'][$nama_karyawan]['sabtu'] ?? 0;
+                        $grandTotalMinggu = $rekap['per_user'][$nama_karyawan]['minggu'] ?? 0;
+                        $grandTotalHariBesar = $rekap['per_user'][$nama_karyawan]['hari_besar'] ?? 0;
+                        $grandTotalSJ = $rekap['per_user'][$nama_karyawan]['sj'] ?? 0;
+                        $grandTotalTidakMasuk = $totalTidakMasuk;
 
-                        foreach ($fields as $field) {
-                            $value = str_replace(' jam', '', $rekap[$field]);
-                            if (is_numeric($value)) {
-                                $grandTotal += (int) $value;
-                            }
+                        if ($isHarianLepas) {
+                            // Untuk Harian Lepas
+                            $grandTotalJam = ($grandTotalSabtu + $grandTotalMinggu + $grandTotalHariBesar) - $grandTotalTidakMasuk;
+                        } else {
+                            // Untuk Harian Tetap
+                            $grandTotalJam = ($grandTotalSJ + $grandTotalSabtu + $grandTotalMinggu + $grandTotalHariBesar) - $grandTotalTidakMasuk;
+                        }
+
+                        if ($grandTotalJam < 0) {
+                            $grandTotalJam = 0;
                         }
                     @endphp
 
                     <tr class="bg-green-200 font-semibold">
-                        <td class="border px-2 py-1 text-right">Grand Total</td>
-                        <td colspan="5" class="border px-2 py-1 text-center">{{ $grandTotal }} jam</td>
+                        <td class="border border-black px-2 py-1 text-right">Grand Total</td>
+                        <td colspan="{{ $isHarianLepas ? 5 : 5 }}" class="border border-black px-2 py-1 text-center">
+                            {{ $grandTotalJam }} jam
+                        </td>
+                        @if ($isHarianLepas)
+                            <td class="border border-black px-2 py-1 text-center">{{ $jumlahHari }} hari</td>
+                        @endif
                     </tr>
                 </tbody>
             </table>
@@ -290,4 +338,57 @@
                 });
         });
     </script>
+@endpush
+
+@push('styles')
+<style>
+.custom-table {
+    border-collapse: collapse;
+    width: auto;
+    margin: 0 auto;
+    background-color: #ffffff;
+    font-size: 0.75rem;
+}
+
+.custom-table th,
+.custom-table td {
+    border: 1px solid black;
+    padding: 6px 10px;
+    text-align: center;
+    vertical-align: middle;
+    white-space: normal;
+    word-break: break-word;
+    font-size: 0.75rem;
+}
+
+.custom-table th.tanggal,
+.custom-table td.tanggal {
+    width: 110px; /* Ukuran kolom Tanggal */
+}
+
+.custom-table th {
+    background-color: #f3f4f6;
+    font-weight: 600;
+}
+
+.custom-table tr:nth-child(even) {
+    background-color: #f9fafb;
+}
+
+.custom-table tr:hover {
+    background-color: #f1f5f9;
+}
+
+/* Untuk cetak */
+@media print {
+    .custom-table {
+        font-size: 0.8rem;
+        background: #ffffff;
+    }
+    .custom-table tr:nth-child(even),
+    .custom-table tr:hover {
+        background: #ffffff;
+    }
+}
+</style>
 @endpush

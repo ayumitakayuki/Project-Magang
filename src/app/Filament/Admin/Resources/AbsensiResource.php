@@ -9,6 +9,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Forms;
 
 class AbsensiResource extends Resource
 {
@@ -20,9 +21,39 @@ class AbsensiResource extends Resource
     public static function form(Form $form): Form
     {
         return $form
-            ->schema([
-                // Bisa diisi nanti untuk edit/create
-            ]);
+        ->schema([
+            Forms\Components\TextInput::make('name')
+                ->label('Nama')
+                ->required(),
+
+            Forms\Components\DatePicker::make('tanggal')
+                ->label('Tanggal')
+                ->required(),
+
+            Forms\Components\TimePicker::make('masuk_pagi')
+                ->label('Masuk Pagi')
+                ->seconds(false),
+
+            Forms\Components\TimePicker::make('keluar_siang')
+                ->label('Keluar Siang')
+                ->seconds(false),
+
+            Forms\Components\TimePicker::make('masuk_siang')
+                ->label('Masuk Siang')
+                ->seconds(false),
+
+            Forms\Components\TimePicker::make('pulang_kerja')
+                ->label('Pulang Kerja')
+                ->seconds(false),
+
+            Forms\Components\TimePicker::make('masuk_lembur')
+                ->label('Masuk Lembur')
+                ->seconds(false),
+
+            Forms\Components\TimePicker::make('pulang_lembur')
+                ->label('Pulang Lembur')
+                ->seconds(false),
+        ]);
     }
 
     public static function table(Table $table): Table
