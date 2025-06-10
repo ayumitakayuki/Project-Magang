@@ -80,7 +80,7 @@ class AbsensiRekapService
                 'sabtu' => $kategori === 'sabtu' ? $jumlahJam . ' jam' : '-',
                 'minggu' => $kategori === 'minggu' ? $jumlahJam . ' jam' : '-',
                 'hari_besar' => $kategori === 'hari_besar' ? $jumlahJam . ' jam' : '-',
-                'tidak_masuk' => $kategori === 'tidak_masuk' ? $jumlahJam . '8 jam' : '-',
+                'tidak_masuk' => $kategori === 'tidak_masuk' ? 8 : '-', 
             ];
         }
 

@@ -10,11 +10,11 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Forms;
+use Filament\Tables\Filters\SelectFilter;
 
 class AbsensiResource extends Resource
 {
     protected static ?string $model = Absensi::class;
-
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
     
 
@@ -78,8 +78,23 @@ class AbsensiResource extends Resource
                 TextColumn::make('pulang_lembur')->label('Pulang Lembur'),
             ])
             ->filters([
-                // Tambahkan filter jika diperlukan
+                SelectFilter::make('status')
+                    ->label('Status Karyawan')
+                    ->options([
+                        'harian tetap' => 'Harian Tetap',
+                        'harian lepas' => 'Harian Lepas',
+                    ])
+                    ->relationship('karyawan', 'status'),
+
+                SelectFilter::make('lokasi')
+                    ->label('Lokasi')
+                    ->options([
+                        'workshop' => 'Workshop',
+                        'proyek' => 'Proyek',
+                    ])
+                    ->relationship('karyawan', 'lokasi'),
             ])
+            ->paginationPageOptions([5, 10, 25, 50, 100, 'all']) // Tambahkan ini
             ->actions([
                 Tables\Actions\EditAction::make(),
             ])
