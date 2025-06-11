@@ -1,33 +1,12 @@
 <x-filament::page>
     <x-filament::card class="bg-blue-100 rounded-xl p-6">
-        {{-- JUDUL + SHOW ALL --}}
-         <div class="flex gap-2 items-center">
-            <form method="GET" class="mb-6 flex flex-wrap items-center gap-2">
-            <select name="status_karyawan"
-                onchange="location = this.value"
-                class="rounded-lg px-3 py-1 bg-blue-200 text-sm border border-blue-500">
-                <option value="?show_all=1&start_date={{ request('start_date') }}&end_date={{ request('end_date') }}&status_karyawan=all"
-                    {{ request('status_karyawan') == 'all' ? 'selected' : '' }}>
-                    Show All
-                </option>
-                <option value="?show_all=1&start_date={{ request('start_date') }}&end_date={{ request('end_date') }}&status_karyawan=staff"
-                    {{ request('status_karyawan') == 'staff' ? 'selected' : '' }}>
-                    Staff
-                </option>
-                <option value="?show_all=1&start_date={{ request('start_date') }}&end_date={{ request('end_date') }}&status_karyawan=harian tetap"
-                    {{ request('status_karyawan') == 'harian tetap' ? 'selected' : '' }}>
-                    Harian Tetap
-                </option>
-                <option value="?show_all=1&start_date={{ request('start_date') }}&end_date={{ request('end_date') }}&status_karyawan=harian lepas"
-                    {{ request('status_karyawan') == 'harian lepas' ? 'selected' : '' }}>
-                    Harian Lepas
-                </option>
-            </select>
-
-        </div>
-    
-        {{-- FORM FILTER --}}
+        {{-- FORM FILTER TERPADU --}}
         <form method="GET" class="mb-6 flex flex-wrap items-center gap-2">
+
+            {{-- Hidden input untuk show_all --}}
+            <input type="hidden" name="show_all" value="1">
+
+            {{-- Search ID/Name --}}
             <input
                 type="text"
                 name="karyawan_keyword"
@@ -36,6 +15,24 @@
                 class="rounded-lg px-3 py-1 bg-blue-200 text-sm w-64"
             />
 
+            {{-- Status Karyawan --}}
+            <select name="status_karyawan"
+                class="rounded-lg px-3 py-1 bg-blue-200 text-sm border border-blue-500">
+                <option value="all" {{ request('status_karyawan') == 'all' ? 'selected' : '' }}>
+                    Show All
+                </option>
+                <option value="staff" {{ request('status_karyawan') == 'staff' ? 'selected' : '' }}>
+                    Staff
+                </option>
+                <option value="harian tetap" {{ request('status_karyawan') == 'harian tetap' ? 'selected' : '' }}>
+                    Harian Tetap
+                </option>
+                <option value="harian lepas" {{ request('status_karyawan') == 'harian lepas' ? 'selected' : '' }}>
+                    Harian Lepas
+                </option>
+            </select>
+
+            {{-- Lokasi --}}
             <select name="lokasi"
                 class="rounded-lg px-3 py-1 bg-blue-200 text-sm">
                 <option value="">Lokasi</option>
@@ -46,6 +43,7 @@
                 @endforeach
             </select>
 
+            {{-- Proyek --}}
             <select name="proyek"
                 class="rounded-lg px-3 py-1 bg-blue-200 text-sm">
                 <option value="">Proyek</option>
@@ -56,6 +54,7 @@
                 @endforeach
             </select>
 
+            {{-- Tanggal --}}
             <input
                 type="text"
                 id="start_date"
@@ -74,12 +73,20 @@
                 placeholder="End Date"
             />
 
+            {{-- Tombol Filter --}}
             <button type="submit"
                 class="px-4 py-1 bg-green-300 hover:bg-green-400 text-sm rounded-lg transition">
                 Filter
             </button>
+
+            {{-- Tombol Reset Filter --}}
+            <a href="{{ route('filament.admin.pages.rekap-absensi') }}"
+                class="px-4 py-1 bg-gray-300 hover:bg-gray-400 text-sm rounded-lg transition">
+                Reset
+            </a>
+
         </form>
-        </form>
+    </form>
 
         @if (!empty($data_harian))
         @php
@@ -201,9 +208,17 @@
             <table class="custom-table">
                 <thead>
                     @php
-                    $isHarianLepas = strtolower($data_karyawan->status ?? '') === 'harian lepas';
-                    $jumlahHari = app(\App\Services\AbsensiRekapService::class)->hitungJumlahHariKerja($rekap['per_tanggal'][$nama_karyawan] ?? []);
+                        $isHarianLepas = strtolower($data_karyawan->status ?? '') === 'harian lepas';
+                        $jumlahHari = 0;
+
+                        if ($isHarianLepas) {
+                            $jumlahHari = app(\App\Services\AbsensiRekapService::class)
+                                ->hitungJumlahHariHarianLepas($data_absensi_karyawan);
+                            $jumlahHariPerTanggal = app(\App\Services\AbsensiRekapService::class)
+                                ->hitungJumlahHariPerTanggal($data_absensi_karyawan);
+                        }
                     @endphp
+
 
                     <tr class="bg-gray-100">
                         <th class="tanggal">Tanggal</th>
@@ -244,7 +259,7 @@
                             <td class="border border-black px-2 py-1">{{ $rekap_tanggal['tidak_masuk'] }}</td>
                             @if ($isHarianLepas)
                                 <td class="border border-black px-2 py-1">
-                                    {{ ($rekap_tanggal['sj'] ?? '-') !== '-' ? '1 hari' : '-' }}
+                                {{ $jumlahHariPerTanggal[$tanggal] }} hari
                                 </td>
                             @endif
                         </tr>

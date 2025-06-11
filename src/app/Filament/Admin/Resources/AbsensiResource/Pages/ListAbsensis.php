@@ -22,5 +22,6 @@ class ListAbsensis extends ListRecords
 
             Actions\CreateAction::make(), // tombol New Absensi tetap tampil
         ];
+        
     }
 }
