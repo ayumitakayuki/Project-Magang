@@ -21,39 +21,39 @@ class AbsensiResource extends Resource
     public static function form(Form $form): Form
     {
         return $form
-        ->schema([
-            Forms\Components\TextInput::make('name')
-                ->label('Nama')
-                ->required(),
+            ->schema([
+                Forms\Components\TextInput::make('name')
+                    ->label('Nama')
+                    ->required(),
 
-            Forms\Components\DatePicker::make('tanggal')
-                ->label('Tanggal')
-                ->required(),
+                Forms\Components\DatePicker::make('tanggal')
+                    ->label('Tanggal')
+                    ->required(),
 
-            Forms\Components\TimePicker::make('masuk_pagi')
-                ->label('Masuk Pagi')
-                ->seconds(false),
+                Forms\Components\TimePicker::make('masuk_pagi')
+                    ->label('Masuk Pagi')
+                    ->seconds(true),
 
-            Forms\Components\TimePicker::make('keluar_siang')
-                ->label('Keluar Siang')
-                ->seconds(false),
+                Forms\Components\TimePicker::make('keluar_siang')
+                    ->label('Keluar Siang')
+                    ->seconds(true),
 
-            Forms\Components\TimePicker::make('masuk_siang')
-                ->label('Masuk Siang')
-                ->seconds(false),
+                Forms\Components\TimePicker::make('masuk_siang')
+                    ->label('Masuk Siang')
+                    ->seconds(true),
 
-            Forms\Components\TimePicker::make('pulang_kerja')
-                ->label('Pulang Kerja')
-                ->seconds(false),
+                Forms\Components\TimePicker::make('pulang_kerja')
+                    ->label('Pulang Kerja')
+                    ->seconds(true),
 
-            Forms\Components\TimePicker::make('masuk_lembur')
-                ->label('Masuk Lembur')
-                ->seconds(false),
+                Forms\Components\TimePicker::make('masuk_lembur')
+                    ->label('Masuk Lembur')
+                    ->seconds(true),
 
-            Forms\Components\TimePicker::make('pulang_lembur')
-                ->label('Pulang Lembur')
-                ->seconds(false),
-        ]);
+                Forms\Components\TimePicker::make('pulang_lembur')
+                    ->label('Pulang Lembur')
+                    ->seconds(true),
+            ]);
     }
 
     public static function table(Table $table): Table

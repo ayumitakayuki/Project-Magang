@@ -218,19 +218,33 @@
                                 ->hitungJumlahHariPerTanggal($data_absensi_karyawan);
                         }
                     @endphp
-
-
-                    <tr class="bg-gray-100">
-                        <th class="tanggal">Tanggal</th>
-                        <th class="border border-black px-2 py-1">SJ</th>
-                        <th class="border border-black px-2 py-1">Sabtu</th>
-                        <th class="border border-black px-2 py-1">Minggu</th>
-                        <th class="border border-black px-2 py-1">Hari Besar</th>
-                        <th class="border border-black px-2 py-1">Tidak Masuk</th>
-                        @if ($isHarianLepas)
-                            <th class="border border-black px-2 py-1">Jumlah Hari</th>
-                        @endif
-                    </tr>
+            
+                    @if ($isHarianLepas)
+                        {{-- HEADER 2 BARIS: Khusus Harian Lepas --}}
+                        <tr class="bg-gray-100 text-xs text-center">
+                            <th rowspan="2" class="border border-black px-2 py-1">Tanggal</th>
+                            <th rowspan="2" class="border border-black px-2 py-1">SJ</th>
+                            <th rowspan="2" class="border border-black px-2 py-1">Sabtu</th>
+                            <th rowspan="2" class="border border-black px-2 py-1">Minggu</th>
+                            <th rowspan="2" class="border border-black px-2 py-1">Hari<br>Besar</th>
+                            <th rowspan="2" class="border border-black px-2 py-1">Tidak<br>Masuk</th>
+                            <th rowspan="2" class="border border-black px-2 py-1">Sisa<br>Jam</th>
+                            <th rowspan="2" class="border border-black px-2 py-1">Jumlah<br>Hari</th>
+                        </tr>
+                        <tr class="bg-gray-100 text-xs text-center">
+                            {{-- Kosong karena semua kolom pakai rowspan --}}
+                        </tr>
+                    @else
+                        {{-- HEADER 1 BARIS: Untuk Staff dan Harian Tetap --}}
+                        <tr class="bg-gray-100 text-xs text-center">
+                            <th class="border border-black px-2 py-1">Tanggal</th>
+                            <th class="border border-black px-2 py-1">SJ</th>
+                            <th class="border border-black px-2 py-1">Sabtu</th>
+                            <th class="border border-black px-2 py-1">Minggu</th>
+                            <th class="border border-black px-2 py-1">Hari Besar</th>
+                            <th class="border border-black px-2 py-1">Tidak Masuk</th>
+                        </tr>
+                    @endif
                 </thead>
                 <tbody>
                     @foreach ($data_absensi_karyawan as $absen)
@@ -258,8 +272,19 @@
                             <td class="border border-black px-2 py-1">{{ $rekap_tanggal['hari_besar'] }}</td>
                             <td class="border border-black px-2 py-1">{{ $rekap_tanggal['tidak_masuk'] }}</td>
                             @if ($isHarianLepas)
+                                @php
+                                    $tanggal = \Carbon\Carbon::parse($absen->tanggal)->format('Y-m-d');
+                                    $rekapHari = $jumlahHariPerTanggal[$tanggal] ?? ['jumlah_hari' => null, 'sisa_jam' => null];
+                                @endphp
                                 <td class="border border-black px-2 py-1">
-                                {{ $jumlahHariPerTanggal[$tanggal] }} hari
+                                    {{ ($rekapHari['sisa_jam'] ?? 0) > 0 && ($rekapHari['jumlah_hari'] ?? 0) > 0
+                                        ? $rekapHari['sisa_jam'] . ' jam'
+                                        : '-' }}
+                                </td>
+                                <td class="border border-black px-2 py-1">
+                                    {{ ($rekapHari['jumlah_hari'] ?? 0) > 0
+                                        ? $rekapHari['jumlah_hari'] . ' hari'
+                                        : '-' }}
                                 </td>
                             @endif
                         </tr>
@@ -278,9 +303,22 @@
                         <td class="border border-black px-2 py-1">{{ ($rekap['per_user'][$nama_karyawan]['sabtu'] ?? 0) . ' jam' }}</td>
                         <td class="border border-black px-2 py-1">{{ ($rekap['per_user'][$nama_karyawan]['minggu'] ?? 0) . ' jam' }}</td>
                         <td class="border border-black px-2 py-1">{{ ($rekap['per_user'][$nama_karyawan]['hari_besar'] ?? 0) . ' jam' }}</td>
-                        <td class="border border-black px-2 py-1">{{ $totalTidakMasuk }} jam</td>
+                        <td class="border border-black px-2 py-1 font-semibold">{{ $totalTidakMasuk }} jam</td>
                         @if ($isHarianLepas)
-                            <td class="border border-black px-2 py-1">{{ $jumlahHari }} hari</td>
+                            @php
+                                $totalSisaJam = collect($jumlahHariPerTanggal)
+                                    ->filter(fn($item) => ($item['jumlah_hari'] ?? 0) > 0)
+                                    ->sum('sisa_jam');
+                            @endphp
+
+                            <td class="border border-black px-2 py-1 font-semibold">
+                                {{ $totalSisaJam > 0 ? $totalSisaJam . ' jam' : '-' }}
+                            </td>
+
+
+                            <td class="border border-black px-2 py-1 font-semibold">
+                                {{ $jumlahHari }} hari
+                            </td>
                         @endif
                     </tr>
 
@@ -293,8 +331,14 @@
                         $grandTotalTidakMasuk = $totalTidakMasuk;
 
                         if ($isHarianLepas) {
-                            // Untuk Harian Lepas
-                            $grandTotalJam = ($grandTotalSabtu + $grandTotalMinggu + $grandTotalHariBesar) - $grandTotalTidakMasuk;
+                            // Hitung sisa jam valid (hanya dari hari yang punya jumlah_hari > 0)
+                            $totalSisaJam = collect($jumlahHariPerTanggal)
+                                ->filter(fn($item) => ($item['jumlah_hari'] ?? 0) > 0)
+                                ->sum('sisa_jam');
+
+                            $grandTotalJam = ($grandTotalSabtu + $grandTotalMinggu + $grandTotalHariBesar)
+                                - $grandTotalTidakMasuk
+                                - $totalSisaJam;
                         } else {
                             // Untuk Harian Tetap
                             $grandTotalJam = ($grandTotalSJ + $grandTotalSabtu + $grandTotalMinggu + $grandTotalHariBesar) - $grandTotalTidakMasuk;
@@ -305,13 +349,23 @@
                         }
                     @endphp
 
+                    @php
+                        // Sisa Jam total hanya jika jumlah_hari > 0
+                        $totalSisaJam = collect($jumlahHariPerTanggal)
+                            ->filter(fn($item) => ($item['jumlah_hari'] ?? 0) > 0)
+                            ->sum('sisa_jam');
+                    @endphp
                     <tr class="bg-green-200 font-semibold">
                         <td class="border border-black px-2 py-1 text-right">Grand Total</td>
                         <td colspan="{{ $isHarianLepas ? 5 : 5 }}" class="border border-black px-2 py-1 text-center">
                             {{ $grandTotalJam }} jam
                         </td>
                         @if ($isHarianLepas)
-                            <td class="border border-black px-2 py-1 text-center">{{ $jumlahHari }} hari</td>
+                            <td class="border border-black px-2 py-1 text-center text-gray-400" style="visibility: hidden">-</td>
+                            <td class="border border-black px-2 py-1 text-center">
+                                {{ $jumlahHari > 0 ? $jumlahHari . ' hari' : '-' }}
+                            </td>
+
                         @endif
                     </tr>
                 </tbody>

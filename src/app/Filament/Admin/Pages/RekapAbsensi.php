@@ -30,6 +30,10 @@ class RekapAbsensi extends Page
     public bool $show_all = false;
     public $lokasi_options = [];
     public $proyek_options = [];
+    public float $totalSisaJam = 0;
+    public float $jumlahHari = 0;
+    public array $jumlahHariPerTanggal = [];
+
 
     public function mount(Request $request): void
     {
@@ -125,6 +129,29 @@ class RekapAbsensi extends Page
                 ->whereBetween('tanggal', [$this->start_date, $this->end_date])
                 ->orderBy('tanggal')
                 ->get();
+
+            // Hitung jumlah hari dan sisa jam per tanggal
+            $jumlahHariPerTanggal = app(AbsensiRekapService::class)
+                ->hitungJumlahHariPerTanggal($this->data_harian);
+
+            $totalSisaJam = 0;
+            $totalHari = 0;
+
+            foreach ($jumlahHariPerTanggal as $rekapPerTanggal) {
+                if (isset($rekapPerTanggal['sisa_jam']) && is_numeric($rekapPerTanggal['sisa_jam'])) {
+                    $totalSisaJam += $rekapPerTanggal['sisa_jam'];
+                }
+
+                if (isset($rekapPerTanggal['jumlah_hari']) && is_numeric($rekapPerTanggal['jumlah_hari'])) {
+                    $totalHari += $rekapPerTanggal['jumlah_hari'];
+                }
+            }
+
+            // Simpan ke property untuk bisa digunakan di Blade
+            $this->totalSisaJam = $totalSisaJam;
+            $this->jumlahHari = $totalHari;
+            $this->jumlahHariPerTanggal = $jumlahHariPerTanggal;
+
         } elseif ($this->selected_lokasi) {
             if ($this->selected_lokasi === 'workshop' || $this->selected_lokasi === 'proyek') {
                 // ambil nama-nama yang pernah absen

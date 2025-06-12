@@ -23,6 +23,8 @@ class AbsensiExport implements FromCollection, WithHeadings, WithEvents, WithSty
     protected $karyawan;
     protected $absensi;
     protected $rekap;
+    protected $jumlahHariPerTanggal = [];
+
 
     protected $dataExport = [];
     protected $totals = [
@@ -50,10 +52,15 @@ class AbsensiExport implements FromCollection, WithHeadings, WithEvents, WithSty
             $start_date,
             $end_date
         );
+        if (strtolower($this->karyawan->status) === 'harian lepas') {
+            $this->jumlahHariPerTanggal = app(AbsensiRekapService::class)
+                ->hitungJumlahHariPerTanggal($this->absensi);
+        }
     }
     public function collection()
     {
         $status = strtolower($this->karyawan->status); // ambil status
+        $totalSisaJam = 0;
 
         foreach ($this->absensi as $absen) {
             $tanggal = $absen['tanggal'];
@@ -72,6 +79,12 @@ class AbsensiExport implements FromCollection, WithHeadings, WithEvents, WithSty
                 $jumlahHari = '1 hari';
                 $this->totals['jumlah_hari']++;
             }
+            
+            if ($status === 'harian lepas' && !empty($this->jumlahHariPerTanggal)) {
+                $totalSisaJam = collect($this->jumlahHariPerTanggal)
+                    ->filter(fn($item) => ($item['jumlah_hari'] ?? 0) > 0)
+                    ->sum('sisa_jam');
+            }
 
             // --- LOGIC PENGOSONGAN SJ UNTUK HARIAN LEPAS ---
             $sjValue = $rekapPerTanggal['sj'] ?? '-';
@@ -79,8 +92,16 @@ class AbsensiExport implements FromCollection, WithHeadings, WithEvents, WithSty
                 $sjValue = '-'; // kosongkan SJ kalau harian lepas
             }
 
+            $sisaJam = '-';
+            if ($status === 'harian lepas') {
+                $rekapHari = $this->jumlahHariPerTanggal[$tanggal] ?? null;
+                if ($rekapHari && ($rekapHari['jumlah_hari'] ?? 0) > 0 && ($rekapHari['sisa_jam'] ?? 0) > 0) {
+                    $sisaJam = $rekapHari['sisa_jam'] . ' jam';
+                }
+            }
+
             // --- MASUKKAN DATA KE EXPORT ---
-            $this->dataExport[] = [
+            $row = [
                 $tanggal,
                 $absen['masuk_pagi'] ?? '-',
                 $absen['keluar_siang'] ?? '-',
@@ -93,22 +114,36 @@ class AbsensiExport implements FromCollection, WithHeadings, WithEvents, WithSty
                 $rekapPerTanggal['minggu'] ?? '-',
                 $rekapPerTanggal['hari_besar'] ?? '-',
                 $rekapPerTanggal['tidak_masuk'] ?? '-',
-                $jumlahHari,
             ];
 
+            if ($status === 'harian lepas') {
+                $row[] = $sisaJam;
+                $row[] = $jumlahHari;
+            }
+
+            $this->dataExport[] = $row;
             $this->sumJam($rekapPerTanggal);
         }
 
+        $totalSisaJamFormatted = $totalSisaJam > 0 ? $totalSisaJam . ' jam' : '-';
+
         // --- TOTAL ROW ---
-        $this->dataExport[] = [
+        $totalRow = [
             'Total', '', '', '', '', '', '',
             ($status === 'harian lepas' ? '-' : $this->formatTotal($this->totals['sj'])),
             $this->formatTotal($this->totals['sabtu']),
             $this->formatTotal($this->totals['minggu']),
             $this->formatTotal($this->totals['hari_besar']),
             $this->formatTotal($this->totals['tidak_masuk']),
-            $this->totals['jumlah_hari'] . ' hari'
         ];
+
+        if ($status === 'harian lepas') {
+            $totalRow[] = $totalSisaJamFormatted;
+            $totalRow[] = $this->totals['jumlah_hari'] . ' hari';
+        }
+
+        $this->dataExport[] = $totalRow;
+
 
         // --- GRAND TOTAL ROW ---
         if ($status === 'harian lepas') {
@@ -116,7 +151,9 @@ class AbsensiExport implements FromCollection, WithHeadings, WithEvents, WithSty
                 $this->totals['sabtu'] +
                 $this->totals['minggu'] +
                 $this->totals['hari_besar']
-            ) - $this->totals['tidak_masuk'];
+            ) - $this->totals['tidak_masuk'] - $totalSisaJam;
+
+            if ($grandTotalJam < 0) $grandTotalJam = 0;
         } else {
             $grandTotalJam = (
                 $this->totals['sj'] +
@@ -126,15 +163,17 @@ class AbsensiExport implements FromCollection, WithHeadings, WithEvents, WithSty
             ) - $this->totals['tidak_masuk'];
         }
 
-        $this->dataExport[] = [
+        $grandRow = [
             'Grand Total', '', '', '', '', '', '',
-            '',
-            '',
-            '',
-            '',
+            '', '', '', '', '', '',
             $grandTotalJam . ' jam',
-            $this->totals['jumlah_hari'] . ' hari'
         ];
+
+        if ($status === 'harian lepas') {
+            $grandRow[] = $this->totals['jumlah_hari'] . ' hari';
+        }
+
+        $this->dataExport[] = $grandRow;
 
         return new \Illuminate\Support\Collection($this->dataExport);
     }
@@ -154,8 +193,22 @@ class AbsensiExport implements FromCollection, WithHeadings, WithEvents, WithSty
             'Minggu',
             'Hari Besar',
             'Tidak Masuk',
+            'Sisa Jam',
             'Jumlah Hari',
         ];
+
+         $base = [
+            'Tanggal', 'Masuk Pagi', 'Keluar Siang', 'Masuk Siang', 'Pulang Kerja',
+            'Masuk Lembur', 'Pulang Lembur', 'SJ',
+            'Sabtu', 'Minggu', 'Hari Besar', 'Tidak Masuk'
+        ];
+
+        if (strtolower($this->karyawan->status) === 'harian lepas') {
+            $base[] = 'Sisa Jam';
+            $base[] = 'Jumlah Hari';
+        }
+        return $base;
+        return $headings;
     }
 
     private function sumJam(array $rekap)
@@ -180,23 +233,12 @@ class AbsensiExport implements FromCollection, WithHeadings, WithEvents, WithSty
 
     public function styles(Worksheet $sheet): array
     {
-        $sheet->getStyle('A7:M7')->applyFromArray([
-            'font' => [
-                'bold' => true,
-            ],
-            'alignment' => [
-                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-            ],
-            'borders' => [
-                'allBorders' => [
-                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
-                ],
-            ],
-        ]);
-
-        // Border untuk semua data sampai baris akhir
         $highestRow = $sheet->getHighestRow();
-        $sheet->getStyle("A7:M$highestRow")->applyFromArray([
+
+        // Gaya untuk header
+        $sheet->getStyle('A7:N7')->applyFromArray([
+            'font' => ['bold' => true],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
             'borders' => [
                 'allBorders' => [
                     'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
@@ -204,32 +246,57 @@ class AbsensiExport implements FromCollection, WithHeadings, WithEvents, WithSty
             ],
         ]);
 
-        // Freeze Header
+        // Border untuk seluruh tabel (maksimal sampai kolom N)
+        $sheet->getStyle("A7:N$highestRow")->applyFromArray([
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'color' => ['argb' => '000000'],
+                ],
+            ],
+        ]);
+
+        // Freeze header (baris ke-8 ke bawah bisa discroll)
         $sheet->freezePane('A8');
 
-        // Rata tengah kolom 'Jumlah Hari'
-        $sheet->getStyle('M8:M' . $highestRow)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        // Tampilkan style kolom Sisa Jam & Jumlah Hari hanya untuk Harian Lepas
+        if (strtolower($this->karyawan->status) === 'harian lepas') {
+            $sheet->getStyle("M8:N$highestRow")->getAlignment()->setHorizontal(
+                \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER
+            );
+
+            $sheet->getStyle("M8:N$highestRow")->applyFromArray([
+                'borders' => [
+                    'left' => [
+                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                        'color' => ['argb' => '000000'],
+                    ],
+                    'right' => [
+                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                        'color' => ['argb' => '000000'],
+                    ],
+                ]
+            ]);
+        }
 
         return [];
     }
 
+
     public function columnWidths(): array
     {
-        return [
-            'A' => 15,
-            'B' => 12,
-            'C' => 12,
-            'D' => 12,
-            'E' => 12,
-            'F' => 12,
-            'G' => 12,
-            'H' => 10,
-            'I' => 10,
-            'J' => 10,
-            'K' => 10,
-            'L' => 12,
-            'M' => 12,
+        $columns = [
+            'A' => 15, 'B' => 12, 'C' => 12, 'D' => 12,
+            'E' => 12, 'F' => 12, 'G' => 12, 'H' => 10,
+            'I' => 10, 'J' => 10, 'K' => 10, 'L' => 12
         ];
+
+        if (strtolower($this->karyawan->status) === 'harian lepas') {
+            $columns['M'] = 12; // Sisa Jam
+            $columns['N'] = 12; // Jumlah Hari
+        }
+
+        return $columns;
     }
 
 
@@ -238,7 +305,7 @@ class AbsensiExport implements FromCollection, WithHeadings, WithEvents, WithSty
         return [
             BeforeSheet::class => function (BeforeSheet $event) {
                 $sheet = $event->getSheet();
-                $sheet->insertNewRowBefore(1, 6);
+                $sheet->insertNewRowBefore(1, 7);
 
                 $sheet->setCellValue('A1', 'ID Karyawan:');
                 $sheet->setCellValue('B1', $this->karyawan->id_karyawan ?? '-');
@@ -256,6 +323,8 @@ class AbsensiExport implements FromCollection, WithHeadings, WithEvents, WithSty
                     $sheet->setCellValue('A5', 'Jenis Proyek:');
                     $sheet->setCellValue('B5', $this->karyawan->jenis_proyek ?? '-');
                 }
+                $sheet->setCellValue('A6', 'Periode:');
+                $sheet->setCellValue('B6', \Carbon\Carbon::parse($this->start_date)->format('d-m-Y') . ' s/d ' . \Carbon\Carbon::parse($this->end_date)->format('d-m-Y'));
             },
         ];
     }
