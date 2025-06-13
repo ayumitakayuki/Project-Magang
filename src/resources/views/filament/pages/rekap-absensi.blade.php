@@ -243,6 +243,7 @@
                             <th class="border border-black px-2 py-1">Minggu</th>
                             <th class="border border-black px-2 py-1">Hari Besar</th>
                             <th class="border border-black px-2 py-1">Tidak Masuk</th>
+                            <th class="border border-black px-2 py-1">Sisa Jam</th>
                         </tr>
                     @endif
                 </thead>
@@ -267,16 +268,20 @@
                             <td class="border border-black px-2 py-1">{{ $rekap_tanggal['minggu'] }}</td>
                             <td class="border border-black px-2 py-1">{{ $rekap_tanggal['hari_besar'] }}</td>
                             <td class="border border-black px-2 py-1">{{ $rekap_tanggal['tidak_masuk'] }}</td>
+                            <td class="border border-black px-2 py-1">
+                                {{ ($rekap_tanggal['sisa_jam'] ?? 0) > 0 ? $rekap_tanggal['sisa_jam'] . ' jam' : '-' }}
+                            </td>
+
                             @if ($isHarianLepas)
                                 @php
                                     $tanggal = \Carbon\Carbon::parse($absen->tanggal)->format('Y-m-d');
                                     $rekapHari = $jumlahHariPerTanggal[$tanggal] ?? ['jumlah_hari' => null, 'sisa_jam' => null];
                                 @endphp
-                                <td class="border border-black px-2 py-1">
+                                {{-- <td class="border border-black px-2 py-1">
                                     {{ ($rekapHari['sisa_jam'] ?? 0) > 0 && ($rekapHari['jumlah_hari'] ?? 0) > 0
                                         ? $rekapHari['sisa_jam'] . ' jam'
                                         : '-' }}
-                                </td>
+                                </td> --}}
                                 <td class="border border-black px-2 py-1">
                                     {{ ($rekapHari['jumlah_hari'] ?? 0) > 0
                                         ? $rekapHari['jumlah_hari'] . ' hari'
@@ -296,70 +301,58 @@
                         <td class="border border-black px-2 py-1">{{ ($rekap['per_user'][$nama_karyawan]['minggu'] ?? 0) . ' jam' }}</td>
                         <td class="border border-black px-2 py-1">{{ ($rekap['per_user'][$nama_karyawan]['hari_besar'] ?? 0) . ' jam' }}</td>
                         <td class="border border-black px-2 py-1 font-semibold">{{ $totalTidakMasuk }} jam</td>
+                        <td class="border border-black px-2 py-1 font-semibold">
+                            {{ ($rekap['per_user'][$nama_karyawan]['sisa_jam'] ?? 0) > 0
+                                ? $rekap['per_user'][$nama_karyawan]['sisa_jam'] . ' jam'
+                                : '-' }}
+                        </td>
                         @if ($isHarianLepas)
                             @php
                                 $totalSisaJam = collect($jumlahHariPerTanggal)
                                     ->filter(fn($item) => ($item['jumlah_hari'] ?? 0) > 0)
                                     ->sum('sisa_jam');
                             @endphp
-
-                            <td class="border border-black px-2 py-1 font-semibold">
+                            {{-- <td class="border border-black px-2 py-1 font-semibold">
                                 {{ $totalSisaJam > 0 ? $totalSisaJam . ' jam' : '-' }}
-                            </td>
-
-
+                            </td> --}}
                             <td class="border border-black px-2 py-1 font-semibold">
                                 {{ $jumlahHari }} hari
                             </td>
                         @endif
                     </tr>
 
-                    {{-- GRAND TOTAL --}}
                     @php
-                        $grandTotalSabtu = $rekap['per_user'][$nama_karyawan]['sabtu'] ?? 0;
-                        $grandTotalMinggu = $rekap['per_user'][$nama_karyawan]['minggu'] ?? 0;
-                        $grandTotalHariBesar = $rekap['per_user'][$nama_karyawan]['hari_besar'] ?? 0;
-                        $grandTotalSJ = $rekap['per_user'][$nama_karyawan]['sj'] ?? 0;
-                        $grandTotalTidakMasuk = $totalTidakMasuk;
+                        $grandTotalSJ = $rekap['sj'] ?? 0;
+                        $grandTotalSabtu = $rekap['sabtu'] ?? 0;
+                        $grandTotalMinggu = $rekap['minggu'] ?? 0;
+                        $grandTotalHariBesar = $rekap['hari_besar'] ?? 0;
+                        $grandTotalTidakMasuk = $rekap['tidak_masuk'] ?? 0;
 
-                        if ($isHarianLepas) {
-                            // Hitung sisa jam valid (hanya dari hari yang punya jumlah_hari > 0)
-                            $totalSisaJam = collect($jumlahHariPerTanggal)
-                                ->filter(fn($item) => ($item['jumlah_hari'] ?? 0) > 0)
-                                ->sum('sisa_jam');
+                        // Cek apakah sisa_jam tersedia
+                        $grandTotalSisaJam = $rekap['per_user'][$nama_karyawan]['sisa_jam'] ?? 0;
 
-                            $grandTotalJam = ($grandTotalSabtu + $grandTotalMinggu + $grandTotalHariBesar)
-                                - $grandTotalTidakMasuk
-                                - $totalSisaJam;
-                        } else {
-                            // Untuk Harian Tetap
-                            $grandTotalJam = ($grandTotalSJ + $grandTotalSabtu + $grandTotalMinggu + $grandTotalHariBesar) - $grandTotalTidakMasuk;
-                        }
+                        
+                        $grandTotalJam = (
+                            $grandTotalSJ + $grandTotalSabtu + $grandTotalMinggu + $grandTotalHariBesar
+                        ) - $grandTotalTidakMasuk - $grandTotalSisaJam;
 
                         if ($grandTotalJam < 0) {
                             $grandTotalJam = 0;
                         }
                     @endphp
 
-                    @php
-                        // Sisa Jam total hanya jika jumlah_hari > 0
-                        $totalSisaJam = collect($jumlahHariPerTanggal)
-                            ->filter(fn($item) => ($item['jumlah_hari'] ?? 0) > 0)
-                            ->sum('sisa_jam');
-                    @endphp
                     <tr class="bg-green-200 font-semibold">
                         <td class="border border-black px-2 py-1 text-right">Grand Total</td>
-                        <td colspan="{{ $isHarianLepas ? 5 : 5 }}" class="border border-black px-2 py-1 text-center">
+                        <td colspan="6" class="border border-black px-2 py-1 text-center">
                             {{ $grandTotalJam }} jam
                         </td>
                         @if ($isHarianLepas)
-                            <td class="border border-black px-2 py-1 text-center text-gray-400" style="visibility: hidden">-</td>
                             <td class="border border-black px-2 py-1 text-center">
                                 {{ $jumlahHari > 0 ? $jumlahHari . ' hari' : '-' }}
                             </td>
-
                         @endif
                     </tr>
+
                 </tbody>
             </table>
         </div>

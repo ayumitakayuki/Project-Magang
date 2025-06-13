@@ -32,6 +32,7 @@ class AbsensiRekapService
             'hari_besar' => 0,
             'tidak_masuk' => 0,
             'per_tanggal' => [],
+            'per_user' => [],
         ];
 
         $period = new \DatePeriod(
@@ -48,14 +49,12 @@ class AbsensiRekapService
             $record = $absensis->get($tanggalStr)?->first(); // ambil satu record jika ada
 
             $hasData = $record && (
-                $record->masuk_pagi ||
-                $record->keluar_siang ||
-                $record->masuk_siang ||
-                $record->pulang_kerja ||
-                $record->masuk_lembur ||
-                $record->pulang_lembur
+                $record->masuk_pagi || $record->keluar_siang ||
+                $record->masuk_siang || $record->pulang_kerja ||
+                $record->masuk_lembur || $record->pulang_lembur
             );
 
+            $jumlahJam = 0;
             $kategori = null;
 
             if (!$hasData) {
@@ -78,6 +77,14 @@ class AbsensiRekapService
                 $jumlahJam = $this->hitungJamLemburSaja($record);
                 $rekap['sj'] += $jumlahJam;
                 $kategori = 'sj';
+
+                $sisaJam = 0;
+            if ($record && $record->masuk_pagi) {
+                $jamMasuk = Carbon::parse($record->masuk_pagi)->format('H:i');
+                if ($jamMasuk > '08:15') {
+                    $sisaJam += 1;
+                }
+            }
 
                 $isHarianLepas = strtolower($record->karyawan->status ?? '') === 'harian lepas';
 
@@ -103,22 +110,61 @@ class AbsensiRekapService
                     $rekap['per_tanggal'][$nama][$tanggalStr]['tidak_masuk'] = '-';
                 }
             }
+            $sisaJam = 0;
 
-            // Format untuk ditampilkan
+            // Logika umum keterlambatan >08:15
+            if ($record && $record->masuk_pagi) {
+                $jamMasuk = Carbon::parse($record->masuk_pagi)->format('H:i');
+                if ($jamMasuk > '08:15') {
+                    $sisaJam += 1;
+                }
+            }
+
+            // Logika khusus harian lepas berdasarkan jam pulang
+            $isHarianLepas = strtolower($record->karyawan->status ?? '') === 'harian lepas';
+            if ($isHarianLepas && $record->pulang_kerja) {
+                $jamPulang = Carbon::parse($record->pulang_kerja)->format('H:i');
+
+                if ($jamPulang >= '14:00' && $jamPulang < '15:00') {
+                    $sisaJam += 3;
+                } elseif ($jamPulang >= '15:00' && $jamPulang < '16:00') {
+                    $sisaJam += 2;
+                } elseif ($jamPulang >= '16:00' && $jamPulang < '17:00') {
+                    $sisaJam += 1;
+                }
+            }
+
             $rekap['per_tanggal'][$nama][$tanggalStr] = [
                 'sj' => $kategori === 'sj' ? $jumlahJam . ' jam' : '-',
                 'sabtu' => $kategori === 'sabtu' ? $jumlahJam . ' jam' : '-',
                 'minggu' => $kategori === 'minggu' ? $jumlahJam . ' jam' : '-',
                 'hari_besar' => $kategori === 'hari_besar' ? $jumlahJam . ' jam' : '-',
                 'tidak_masuk' => $kategori === 'tidak_masuk' ? 8 : '-', 
+                'sisa_jam' => $sisaJam,
             ];
+
+            $rekap['per_user'][$nama]['sisa_jam'] = ($rekap['per_user'][$nama]['sisa_jam'] ?? 0) + $sisaJam;
         }
 
-        // Format total akhir
-        $rekap['sj'] .= ' jam';
-        $rekap['sabtu'] .= ' jam';
-        $rekap['minggu'] .= ' jam';
-        $rekap['hari_besar'] .= ' jam';
+            $rekap['per_user'][$nama]['sj'] = $rekap['sj'] ?? 0;
+            $rekap['per_user'][$nama]['sabtu'] = $rekap['sabtu'] ?? 0;
+            $rekap['per_user'][$nama]['minggu'] = $rekap['minggu'] ?? 0;
+            $rekap['per_user'][$nama]['hari_besar'] = $rekap['hari_besar'] ?? 0;
+            $rekap['per_user'][$nama]['tidak_masuk'] = $rekap['tidak_masuk'] ?? 0;
+
+            // Hitung total sisa jam
+            $totalSisaJam = 0;
+            foreach ($rekap['per_tanggal'][$nama] ?? [] as $dataTanggal) {
+                $totalSisaJam += $dataTanggal['sisa_jam'] ?? 0;
+            }
+            $rekap['per_user'][$nama]['sisa_jam'] = $totalSisaJam;
+
+            // Baru ubah untuk keperluan tampilan
+            $rekap['sj'] .= ' jam';
+            $rekap['sabtu'] .= ' jam';
+            $rekap['minggu'] .= ' jam';
+            $rekap['hari_besar'] .= ' jam';
+
 
         return $rekap;
     }
@@ -242,7 +288,44 @@ class AbsensiRekapService
                     'hari_besar' => $kategori === 'hari_besar' ? $jumlahJam . ' jam' : '-',
                     'tidak_masuk' => $kategori === 'tidak_masuk' ? '8 jam' : '-',
                 ];
+                // Hitung sisa jam: semua karyawan
+                $sisaJam = 0;
+
+                if ($record && $record->masuk_pagi) {
+                    $jamMasuk = Carbon::parse($record->masuk_pagi)->format('H:i');
+                    if ($jamMasuk > '08:15') {
+                        $sisaJam += 1;
+                    }
+                }
+
+                // Logika khusus harian lepas berdasarkan jam pulang
+                $isHarianLepas = strtolower($record->karyawan->status ?? '') === 'harian lepas';
+                if ($isHarianLepas && $record->pulang_kerja) {
+                    $jamPulang = Carbon::parse($record->pulang_kerja)->format('H:i');
+
+                    if ($jamPulang >= '14:00' && $jamPulang < '15:00') {
+                        $sisaJam += 3;
+                    } elseif ($jamPulang >= '15:00' && $jamPulang < '16:00') {
+                        $sisaJam += 2;
+                    } elseif ($jamPulang >= '16:00' && $jamPulang < '17:00') {
+                        $sisaJam += 1;
+                    }
+                }
+
+                $rekap['per_tanggal'][$nama][$tanggalStr]['sisa_jam'] = $sisaJam;
+                $rekap['per_user'][$nama]['sisa_jam'] = ($rekap['per_user'][$nama]['sisa_jam'] ?? 0) + $sisaJam;
+                $rekap['grand_total']['sisa_jam'] = ($rekap['grand_total']['sisa_jam'] ?? 0) + $sisaJam;
             }
+        }
+        $rekap['grand_total']['jam'] = (
+        $rekap['grand_total']['sj'] +
+        $rekap['grand_total']['sabtu'] +
+        $rekap['grand_total']['minggu'] +
+        $rekap['grand_total']['hari_besar']
+        ) - $rekap['grand_total']['tidak_masuk'] - $rekap['grand_total']['sisa_jam'];
+
+        if ($rekap['grand_total']['jam'] < 0) {
+            $rekap['grand_total']['jam'] = 0;
         }
 
         return $rekap;
