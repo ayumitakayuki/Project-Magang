@@ -261,11 +261,7 @@
                         <tr>
                             <td class="tanggal">{{ \Carbon\Carbon::parse($absen->tanggal)->format('d-m-Y') }}</td>
                             <td class="border border-black px-2 py-1">
-                                @if ($isHarianLepas)
-                                    -
-                                @else
-                                    {{ ($rekap_tanggal['sj'] ?? '-') }}
-                                @endif
+                                {{ ($rekap_tanggal['sj'] ?? '-') }}
                             </td>
                             <td class="border border-black px-2 py-1">{{ $rekap_tanggal['sabtu'] }}</td>
                             <td class="border border-black px-2 py-1">{{ $rekap_tanggal['minggu'] }}</td>
@@ -294,11 +290,7 @@
                     <tr class="bg-gray-200 font-semibold">
                         <td class="border border-black px-2 py-1 text-right">Total</td>
                         <td class="border border-black px-2 py-1">
-                            @if ($isHarianLepas)
-                                -
-                            @else
-                                {{ ($rekap['per_user'][$nama_karyawan]['sj'] ?? 0) . ' jam' }}
-                            @endif
+                            {{ ($rekap['per_user'][$nama_karyawan]['sj'] ?? 0) . ' jam' }}
                         </td>
                         <td class="border border-black px-2 py-1">{{ ($rekap['per_user'][$nama_karyawan]['sabtu'] ?? 0) . ' jam' }}</td>
                         <td class="border border-black px-2 py-1">{{ ($rekap['per_user'][$nama_karyawan]['minggu'] ?? 0) . ' jam' }}</td>
