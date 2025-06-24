@@ -119,7 +119,7 @@ class RekapAbsensi extends Page
 
         } elseif ($this->selected_name) {
             // logika per nama spesifik
-            $this->rekap = (new AbsensiRekapService())->rekapUntukUser(
+            $this->rekap = (array) (new AbsensiRekapService())->rekapUntukUser(
                 $this->selected_name,
                 $this->start_date,
                 $this->end_date

@@ -5,10 +5,12 @@ namespace App\Services;
 use App\Models\Absensi;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use App\Models\AbsensiRekap;
 
 class AbsensiRekapService
 {
-    public function rekapUntukUser(string $nama, string $start_date, string $end_date): array
+    public function rekapUntukUser(string $nama, string $start_date, string $end_date)
     {
         $absensis = Absensi::where('name', $nama)
             ->whereBetween('tanggal', [$start_date, $end_date])
@@ -152,21 +154,43 @@ class AbsensiRekapService
             $rekap['per_user'][$nama]['hari_besar'] = $rekap['hari_besar'] ?? 0;
             $rekap['per_user'][$nama]['tidak_masuk'] = $rekap['tidak_masuk'] ?? 0;
 
-            // Hitung total sisa jam
+            // Hitung total sisa jam dari semua tanggal
             $totalSisaJam = 0;
             foreach ($rekap['per_tanggal'][$nama] ?? [] as $dataTanggal) {
                 $totalSisaJam += $dataTanggal['sisa_jam'] ?? 0;
             }
             $rekap['per_user'][$nama]['sisa_jam'] = $totalSisaJam;
 
-            // Baru ubah untuk keperluan tampilan
-            $rekap['sj'] .= ' jam';
-            $rekap['sabtu'] .= ' jam';
-            $rekap['minggu'] .= ' jam';
-            $rekap['hari_besar'] .= ' jam';
+            // Ambil nilai numerik mentah sebelum diubah ke string
+            $sj = $rekap['sj'] ?? 0;
+            $sabtu = $rekap['sabtu'] ?? 0;
+            $minggu = $rekap['minggu'] ?? 0;
+            $hari_besar = $rekap['hari_besar'] ?? 0;
+            $tidak_masuk = $rekap['tidak_masuk'] ?? 0;
+            $sisa_jam = $rekap['per_user'][$nama]['sisa_jam'] ?? 0;
 
+            // Simpan nilai mentah ke grand_total
+            $rekap['grand_total'] = [
+                'sj' => $sj,
+                'sabtu' => $sabtu,
+                'minggu' => $minggu,
+                'hari_besar' => $hari_besar,
+                'tidak_masuk' => $tidak_masuk,
+                'sisa_jam' => $sisa_jam,
+                'jam' => max(0, ($sj + $sabtu + $minggu + $hari_besar) - $tidak_masuk - $sisa_jam),
+            ];
 
-        return $rekap;
+            // Jangan langsung ubah ke string untuk rekapan utama
+            // Jika ingin tampilan "5 jam", buat bagian terpisah:
+            $rekap['display'] = [
+                'sj' => $sj . ' jam',
+                'sabtu' => $sabtu . ' jam',
+                'minggu' => $minggu . ' jam',
+                'hari_besar' => $hari_besar . ' jam',
+                'tidak_masuk' => $tidak_masuk . ' jam',
+                'sisa_jam' => $sisa_jam . ' jam',
+            ];
+            $this->simpanRekapKeDatabase($nama, $start_date, $end_date, $rekap);
     }
 
     public function rekapSemuaUser($start, $end, $nama_karyawan = null, $status_karyawan = null, $lokasi = null, $jenis_proyek = null)
@@ -205,9 +229,22 @@ class AbsensiRekapService
                 'minggu' => 0,
                 'hari_besar' => 0,
                 'tidak_masuk' => 0,
+                'sisa_jam' => 0,
+                'jam' => 0
             ],
             'per_tanggal' => [],
         ];
+
+        foreach ($data as $nama => $_) {
+            $rekap['per_user'][$nama] = [
+                'sj' => 0,
+                'sabtu' => 0,
+                'minggu' => 0,
+                'hari_besar' => 0,
+                'tidak_masuk' => 0,
+                'sisa_jam' => 0,  // Initialize this for each user
+            ];
+        }
 
         $period = new \DatePeriod(
             new \DateTime($start),
@@ -235,6 +272,17 @@ class AbsensiRekapService
 
                 $kategori = null;
                 $jumlahJam = 0;
+
+                if (!isset($rekap['per_tanggal'][$nama][$tanggalStr])) {
+                    $rekap['per_tanggal'][$nama][$tanggalStr] = [
+                        'sj' => '-',
+                        'sabtu' => '-',
+                        'minggu' => '-',
+                        'hari_besar' => '-',
+                        'tidak_masuk' => '-',
+                        'sisa_jam' => 0  // Initialize this
+                    ];
+                }
 
                 if (!$record || !$hasData) {
                     // Tidak ada record atau record kosong
@@ -317,15 +365,27 @@ class AbsensiRekapService
                 $rekap['grand_total']['sisa_jam'] = ($rekap['grand_total']['sisa_jam'] ?? 0) + $sisaJam;
             }
         }
-        $rekap['grand_total']['jam'] = (
-        $rekap['grand_total']['sj'] +
-        $rekap['grand_total']['sabtu'] +
-        $rekap['grand_total']['minggu'] +
-        $rekap['grand_total']['hari_besar']
-        ) - $rekap['grand_total']['tidak_masuk'] - $rekap['grand_total']['sisa_jam'];
+            $rekap['grand_total']['jam'] = max(0, 
+            ($rekap['grand_total']['sj'] +
+            $rekap['grand_total']['sabtu'] +
+            $rekap['grand_total']['minggu'] +
+            $rekap['grand_total']['hari_besar'])
+            - $rekap['grand_total']['tidak_masuk']
+            - $rekap['grand_total']['sisa_jam']
+        );
 
-        if ($rekap['grand_total']['jam'] < 0) {
-            $rekap['grand_total']['jam'] = 0;
+        foreach ($rekap['per_user'] as $nama => $rekapUser) {
+            $absensiTanggal = $data->get($nama);
+
+            // Ambil tanggal terakhir absensi (jika ada)
+            $tanggalTerakhir = collect($absensiTanggal ?? [])->keys()->sortDesc()->first();
+            $periodeAkhir = $tanggalTerakhir ?? $end;
+
+            // Simpan hanya data rekap user ini
+            $this->simpanRekapKeDatabase($nama, $start, $periodeAkhir, [
+                'per_user' => [$nama => $rekapUser],
+                'per_tanggal' => $rekap['per_tanggal'][$nama] ?? [],
+            ]);
         }
 
         return $rekap;
@@ -455,5 +515,52 @@ class AbsensiRekapService
         }
 
         return $jumlahHari;
+    }
+    public function simpanRekapKeDatabase($nama, $start_date, $end_date, $rekap)
+    {
+        $karyawan = \App\Models\Karyawan::where('nama', $nama)->first();
+
+        // Hitung total_jam dan jumlah_hari sebelum simpan
+        $rekap['per_user'][$nama]['total_jam'] =
+            ($rekap['per_user'][$nama]['sj'] ?? 0)
+            + ($rekap['per_user'][$nama]['sabtu'] ?? 0)
+            + ($rekap['per_user'][$nama]['minggu'] ?? 0)
+            + ($rekap['per_user'][$nama]['hari_besar'] ?? 0)
+            - ($rekap['per_user'][$nama]['tidak_masuk'] ?? 0)
+            - ($rekap['per_user'][$nama]['sisa_jam'] ?? 0);
+
+        $rekap['per_user'][$nama]['jumlah_hari'] = count($rekap['per_tanggal'][$nama] ?? []);
+
+        // Debug log
+        Log::info('Simpan Absensi Rekap:', [
+            'karyawan_id' => $karyawan?->id_karyawan,
+            'nama' => $nama,
+            'periode_awal' => $start_date,
+            'periode_akhir' => $end_date,
+            'rekap' => $rekap['per_user'][$nama],
+        ]);
+        Log::info('DEBUG simpan rekap', [
+            'nama' => $nama,
+            'rekap_user' => $rekap['per_user'][$nama] ?? 'tidak ditemukan',
+        ]);
+            AbsensiRekap::updateOrCreate(
+            [
+                'karyawan_id'   => $karyawan?->id_karyawan,
+                'periode_awal'  => $start_date,
+                'periode_akhir' => $end_date,
+            ],
+            [
+                'nama'         => $nama,
+                'sj'           => (int) $rekap['per_user'][$nama]['sj'] ?? 0,
+                'sabtu'        => (int) $rekap['per_user'][$nama]['sabtu'] ?? 0,
+                'minggu'       => (int) $rekap['per_user'][$nama]['minggu'] ?? 0,
+                'hari_besar'   => (int) $rekap['per_user'][$nama]['hari_besar'] ?? 0,
+                'tidak_masuk'  => (int) $rekap['per_user'][$nama]['tidak_masuk'] ?? 0,
+                'sisa_jam'     => (int) $rekap['per_user'][$nama]['sisa_jam'] ?? 0,
+                'total_jam'    => (int) $rekap['per_user'][$nama]['total_jam'] ?? 0,
+                'jumlah_hari'  => (int) $rekap['per_user'][$nama]['jumlah_hari'] ?? 0,
+            ]
+        );
+
     }
 }

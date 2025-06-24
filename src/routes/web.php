@@ -6,6 +6,7 @@ use App\Http\Controllers\AbsensiImportController;
 use Livewire\Livewire;
 use App\Exports\AbsensiExport;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Filament\Admin\Pages\SlipGaji;
 
 
 /* NOTE: Do Not Remove
