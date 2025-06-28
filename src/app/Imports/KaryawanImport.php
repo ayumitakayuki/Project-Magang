@@ -17,10 +17,13 @@ class KaryawanImport implements ToCollection, WithHeadingRow
         'lokasi',
         'jenis_proyek',
         'gaji_perbulan',
-        'gaji_lembur_reguler',
-        'gaji_lembur_sabtu',
-        'gaji_lembur_minggu_haribesar',
+        'gaji_lembur',
         'gaji_harian',
+        'uang_makan_lembur_malam',
+        'uang_makan_lembur_jalan',
+        'potongan_bpjs_kesehatan',
+        'potongan_tenaga_kerja',
+        'potongan_bpjs_kesehatan_tk',
     ];
 
     protected ?string $filename = null;
@@ -66,10 +69,13 @@ class KaryawanImport implements ToCollection, WithHeadingRow
                     'lokasi' => $row['lokasi'] ?? null,
                     'jenis_proyek' => $row['jenis_proyek'] ?? null,
                     'gaji_perbulan' => $row['gaji_perbulan'] ?? null,
-                    'gaji_lembur_reguler' => $row['gaji_lembur_reguler'] ?? null,
-                    'gaji_lembur_sabtu' => $row['gaji_lembur_sabtu'] ?? null,
-                    'gaji_lembur_minggu_haribesar' => $row['gaji_lembur_minggu_haribesar'] ?? null,
+                    'gaji_lembur' => $row['gaji_lembur'] ?? null,
                     'gaji_harian' => $row['gaji_harian'] ?? null,
+                    'uang_makan_lembur_malam' => $row['uang_makan_lembur_malam'] ?? null,
+                    'uang_makan_lembur_jalan' => $row['uang_makan_lembur_jalan'] ?? null,
+                    'potongan_bpjs_kesehatan' => $row['potongan_bpjs_kesehatan'] ?? null,
+                    'potongan_tenaga_kerja' => $row['potongan_tenaga_kerja'] ?? null,
+                    'potongan_bpjs_kesehatan_tk' => $row['potongan_bpjs_kesehatan_tk'] ?? null,
                 ]
             );
         }

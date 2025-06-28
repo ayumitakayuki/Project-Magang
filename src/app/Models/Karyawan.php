@@ -15,10 +15,13 @@ class Karyawan extends Model
         'lokasi',
         'jenis_proyek',
         'gaji_perbulan',
-        'gaji_lembur_reguler',
-        'gaji_lembur_sabtu',
-        'gaji_lembur_minggu_haribesar',
+        'gaji_lembur',
         'gaji_harian',
+        'uang_makan_lembur_malam',
+        'uang_makan_lembur_jalan',
+        'potongan_bpjs_kesehatan',
+        'potongan_tenaga_kerja',
+        'potongan_bpjs_kesehatan_tk',
     ];
 
     public function absensis(): HasMany

@@ -15,19 +15,17 @@ return new class extends Migration
             $table->id();
             $table->string('id_karyawan', 20)->unique()->nullable();
             $table->string('nama', 100);
-
-            // ENUM untuk status
             $table->enum('status', ['staff', 'harian tetap', 'harian lepas'])->default('harian tetap');
-
-            // ENUM untuk lokasi
             $table->enum('lokasi', ['workshop', 'proyek'])->default('workshop');
             $table->string('jenis_proyek', 100)->nullable();
-
             $table->decimal('gaji_perbulan', 15, 2)->nullable();
-            $table->decimal('gaji_lembur_reguler', 15, 2)->nullable();
-            $table->decimal('gaji_lembur_sabtu', 15, 2)->nullable();
-            $table->decimal('gaji_lembur_minggu_haribesar', 15, 2)->nullable();
+            $table->decimal('gaji_lembur', 15, 2)->nullable();
             $table->decimal('gaji_harian', 15, 2)->nullable();
+            $table->decimal('uang_makan_lembur_malam', 15, 2)->nullable();
+            $table->decimal('uang_makan_lembur_jalan', 15, 2)->nullable();
+            $table->decimal('potongan_bpjs_kesehatan', 15, 2)->nullable();
+            $table->decimal('potongan_tenaga_kerja', 15, 2)->nullable();
+            $table->decimal('potongan_bpjs_kesehatan_tk', 15, 2)->nullable();
             
             $table->timestamps();
         });

@@ -69,20 +69,32 @@ class KaryawanResource extends Resource
                 ->label('Gaji Per Bulan')
                 ->numeric(),
 
-            TextInput::make('gaji_lembur_reguler')
-                ->label('Gaji Lembur Reguler')
+            TextInput::make('gaji_lembur')
+                ->label('Gaji Lembur')
                 ->numeric(),
-
-            TextInput::make('gaji_lembur_sabtu')
-                ->label('Gaji Lembur Sabtu')
-                ->numeric(),
-
-            TextInput::make('gaji_lembur_minggu_haribesar')
-                ->label('Gaji Lembur Minggu/HariBesar')
-                ->numeric(),
-
+                
             TextInput::make('gaji_harian')
                 ->label('Gaji Harian')
+                ->numeric(),
+
+            TextInput::make('uang_makan_lembur_malam')
+                ->label('Uang Makan Lembur Malam')
+                ->numeric(),
+
+            TextInput::make('uang_makan_lembur_jalan')
+                ->label('Uang Makan Lembur Jalan')
+                ->numeric(),
+
+            TextInput::make('potongan_bpjs_kesehatan')
+                ->label('Potongan BPJS Kesehatan')
+                ->numeric(),
+
+            TextInput::make('potongan_tenaga_kerja')
+                ->label('Potongan Tenaga Kerja')
+                ->numeric(),
+
+            TextInput::make('potongan_bpjs_kesehatan_tk')
+                ->label('Potongan BPJS Kesehatan + TK')
                 ->numeric(),
         ]);
     }
@@ -122,20 +134,32 @@ class KaryawanResource extends Resource
                     ->label('Gaji Per Bulan')
                     ->formatStateUsing(fn ($state) => number_format($state, 0, ',', '.')),
 
-                TextColumn::make('gaji_lembur_reguler')
-                    ->label('Gaji Lembur Reguler')
-                    ->formatStateUsing(fn ($state) => number_format($state, 0, ',', '.')),
-
-                TextColumn::make('gaji_lembur_sabtu')
-                    ->label('Gaji Lembur Sabtu')
-                    ->formatStateUsing(fn ($state) => number_format($state, 0, ',', '.')),
-
-                TextColumn::make('gaji_lembur_minggu_haribesar')
-                    ->label('Gaji Lembur Minggu/HariBesar')
+                TextColumn::make('gaji_lembur')
+                    ->label('Gaji Lemburs')
                     ->formatStateUsing(fn ($state) => number_format($state, 0, ',', '.')),
 
                 TextColumn::make('gaji_harian')
                     ->label('Gaji Harian')
+                    ->formatStateUsing(fn ($state) => number_format($state, 0, ',', '.')),
+                
+                TextColumn::make('uang_makan_lembur_malam')
+                    ->label('Uang Makan Lembur Malam')
+                    ->formatStateUsing(fn ($state) => number_format($state, 0, ',', '.')),
+
+                TextColumn::make('uang_makan_lembur_jalan')
+                    ->label('Uang Makan Lembur Jalan')
+                    ->formatStateUsing(fn ($state) => number_format($state, 0, ',', '.')),
+
+                TextColumn::make('potongan_bpjs_kesehatan')
+                    ->label('Potongan BPJS Kesehatan')
+                    ->formatStateUsing(fn ($state) => number_format($state, 0, ',', '.')),
+
+                TextColumn::make('potongan_tenaga_kerja')
+                    ->label('Potongan Tenaga Kerja')
+                    ->formatStateUsing(fn ($state) => number_format($state, 0, ',', '.')),
+
+                TextColumn::make('potongan_bpjs_kesehatan_tk')
+                    ->label('Potongan BPJS Kesehatan + TK')
                     ->formatStateUsing(fn ($state) => number_format($state, 0, ',', '.')),
             ])
             ->filters([

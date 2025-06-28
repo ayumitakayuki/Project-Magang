@@ -115,36 +115,36 @@
                             <td class="px-6 py-4 text-center">{{ $gaji_data['total_hari_kerja'] }}</td>
                         </tr>
                         <tr>
-                            <td class="px-6 py-4 text-center">b</td>
-                            <td class="px-6 py-4">Lembur senin s/d jumat</td>
-                            <td class="px-6 py-4 text-center">{{ $gaji_data['total_hari_lembur'] }}</td>
-                            <td class="px-6 py-4 text-center">-</td>
-                            <td class="px-6 py-4 text-center">1.5</td>
-                            <td class="px-6 py-4 text-center">{{ $gaji_data['total_hari_lembur'] }}</td>
+                            <td>b</td>
+                            <td>Lembur senin s/d jumat</td>
+                            <td>{{ $gaji_data['lembur_senin_jumat_masuk'] }}</td>
+                            <td class="text-center">{{ $gaji_data['lembur_senin_jumat_faktor'] }}</td>
+                            <td class="text-right">{{ number_format($gaji_data['lembur_senin_jumat_nominal'], 0, ',', '.') }}</td>
+                            <td class="text-right">{{ number_format($gaji_data['lembur_senin_jumat_total'], 0, ',', '.') }}</td>
                         </tr>
                         <tr>
                             <td class="px-6 py-4 text-center">c</td>
                             <td class="px-6 py-4">Lembur Sabtu</td>
-                            <td class="px-6 py-4 text-center">x</td>
-                            <td class="px-6 py-4 text-center">x</td>
-                            <td class="px-6 py-4 text-center">1.5</td>
-                            <td class="px-6 py-4 text-center">-</td>
+                            <td>{{ $gaji_data['lembur_sabtu_masuk'] }}</td>
+                            <td class="text-center">{{ $gaji_data['lembur_sabtu_faktor'] }}</td>
+                            <td class="text-right">{{ number_format($gaji_data['lembur_sabtu_nominal'], 0, ',', '.') }}</td>
+                            <td class="text-right">{{ number_format($gaji_data['lembur_sabtu_total'], 0, ',', '.') }}</td>
                         </tr>
                         <tr>
                             <td class="px-6 py-4 text-center">d</td>
                             <td class="px-6 py-4">Lembur Minggu</td>
-                            <td class="px-6 py-4 text-center">x</td>
-                            <td class="px-6 py-4 text-center">x</td>
-                            <td class="px-6 py-4 text-center">2</td>
-                            <td class="px-6 py-4 text-center">-</td>
+                            <td class="px-6 py-4 text-center">{{ $gaji_data['lembur_minggu_masuk'] }}</td>
+                            <td class="px-6 py-4 text-center">{{ $gaji_data['lembur_minggu_faktor'] }}</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['lembur_minggu_nominal'], 0, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['lembur_minggu_total'], 0, ',', '.') }}</td>
                         </tr>
                         <tr>
                             <td class="px-6 py-4 text-center">e</td>
                             <td class="px-6 py-4">Lembur Hari Besar</td>
-                            <td class="px-6 py-4 text-center">x</td>
-                            <td class="px-6 py-4 text-center">x</td>
-                            <td class="px-6 py-4 text-center">2</td>
-                            <td class="px-6 py-4 text-center">-</td>
+                            <td class="px-6 py-4 text-center">{{ $gaji_data['lembur_hari_besar_masuk'] }}</td>
+                            <td class="px-6 py-4 text-center">{{ $gaji_data['lembur_hari_besar_faktor'] }}</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['lembur_hari_besar_nominal'], 0, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['lembur_hari_besar_total'], 0, ',', '.') }}</td>
                         </tr>
                         @foreach($additional_items as $index => $item)
                         <tr>
@@ -168,20 +168,19 @@
                         <tr>
                             <td class="px-6 py-4 text-center">f</td>
                             <td class="px-6 py-4">Potongan Gaji Tdk Masuk (Perjam)</td>
+                            <td class="px-6 py-4 text-center">{{ $gaji_data['potongan_tidak_masuk_masuk'] }}</td>
                             <td class="px-6 py-4 text-center">-</td>
-                            <td class="px-6 py-4 text-center">-</td>
-                            <td class="px-6 py-4 text-center">-</td>
-                            <td class="px-6 py-4 text-center">-</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['potongan_tidak_masuk_nominal'], 0, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['potongan_tidak_masuk_total'], 0, ',', '.') }}</td>
                         </tr>
                         <tr>
                             <td class="px-6 py-4 text-center">g</td>
                             <td class="px-6 py-4">Potongan Gaji Tdk Disiplin</td>
+                            <td class="px-6 py-4 text-center">{{ $gaji_data['potongan_tidak_disiplin_masuk'] }}</td>
                             <td class="px-6 py-4 text-center">-</td>
-                            <td class="px-6 py-4 text-center">-</td>
-                            <td class="px-6 py-4 text-center">-</td>
-                            <td class="px-6 py-4 text-center">-</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['potongan_tidak_disiplin_nominal'], 0, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['potongan_tidak_disiplin_total'], 0, ',', '.') }}</td>
                         </tr>
-                        
                         <tr class="font-bold border-t-2 border-gray-200">
                             <td colspan="5" class="px-6 py-4 text-right">JML</td>
                             <td class="px-6 py-4 text-right">Rp {{ number_format($gaji_data['total_gaji'], 0, ',', '.') }}</td>
