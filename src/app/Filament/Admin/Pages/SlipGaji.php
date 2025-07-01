@@ -23,6 +23,8 @@ class SlipGaji extends Page
     public array $gaji_data = [];
     public $all_karyawan = null;
     public $additional_items = [];
+    public $sub_total = 0;
+
     
     public $newItem = [
         'type' => '',
@@ -83,6 +85,7 @@ class SlipGaji extends Page
             }
             
             $this->gaji_data['total_gaji'] += $total_additional;
+            $this->calculateGrandTotal();
         }
     }
 
@@ -149,6 +152,7 @@ class SlipGaji extends Page
         ];
 
         $this->hitungSlipGaji();
+        $this->calculateGrandTotal();
     }
 
 
@@ -156,14 +160,16 @@ class SlipGaji extends Page
     public function deleteItem($index)
     {
         unset($this->additional_items[$index]);
+
         $this->additional_items = array_values($this->additional_items);
         $this->hitungSlipGaji();
+        $this->calculateGrandTotal();
     }
 
     public function updateKasbonField($field, $value)
     {
         $value = (float) $value;
-        
+
         switch ($field) {
             case 'masuk':
                 $this->gaji_data['kasbon_masuk'] = $value;
@@ -174,34 +180,44 @@ class SlipGaji extends Page
             case 'nominal_lembur':
                 $this->gaji_data['kasbon_nominal'] = $value;
                 break;
+            case 'total':
+                $this->gaji_data['kasbon'] = $value;
+                break;
         }
 
-        // Recalculate kasbon total
-        $this->gaji_data['kasbon'] = $this->calculateKasbonTotal();
         $this->calculateGrandTotal();
     }
 
-    private function calculateKasbonTotal()
-    {
-        $masuk = $this->gaji_data['kasbon_masuk'] ?? 0;
-        $faktor = $this->gaji_data['kasbon_faktor'] ?? 0;
-        $nominal = $this->gaji_data['kasbon_nominal'] ?? 0;
+    // private function calculateKasbonTotal()
+    // {
+    //     $masuk = $this->gaji_data['kasbon_masuk'] ?? 0;
+    //     $faktor = $this->gaji_data['kasbon_faktor'] ?? 0;
+    //     $nominal = $this->gaji_data['kasbon_nominal'] ?? 0;
         
-        return $masuk * $faktor * $nominal;
-    }
+    //     return $masuk * $nominal;
+    // }
 
     private function calculateGrandTotal()
     {
-        $subTotal = $this->calculateSubTotal();
+        $this->sub_total = $this->calculateSubTotal();
         $kasbon = $this->gaji_data['kasbon'] ?? 0;
-        $this->gaji_data['total_gaji'] = $subTotal - $kasbon;
-    }
 
+        $this->gaji_data['total_gaji'] = $this->sub_total - $kasbon;
+    }
     private function calculateSubTotal()
     {
-        $subTotal = $this->gaji_data['gaji_pokok'] ?? 0;
-        
-        // Add all additional items
+        $subTotal = $this->gaji_data['gaji_setengah_bulan_nominal'] ?? 0;
+
+        $subTotal += $this->gaji_data['lembur_senin_jumat_total'] ?? 0;
+        $subTotal += $this->gaji_data['lembur_sabtu_total'] ?? 0;
+        $subTotal += $this->gaji_data['lembur_minggu_total'] ?? 0;
+        $subTotal += $this->gaji_data['lembur_hari_besar_total'] ?? 0;
+
+        // Potongan dikurangi
+        $subTotal -= $this->gaji_data['potongan_tidak_masuk_total'] ?? 0;
+        $subTotal -= $this->gaji_data['potongan_tidak_disiplin_total'] ?? 0;
+
+        // Item tambahan (manual dari user)
         foreach ($this->additional_items as $item) {
             if (str_contains(strtolower($item['keterangan']), 'potongan')) {
                 $subTotal -= $item['total'];
@@ -209,9 +225,10 @@ class SlipGaji extends Page
                 $subTotal += $item['total'];
             }
         }
-        
+
         return $subTotal;
     }
+
     public function updatedNewItemType($value)
     {
         $nominals = $this->gaji_data['nominals'] ?? [];
@@ -238,6 +255,4 @@ class SlipGaji extends Page
 
         $this->newItem['total'] = $masuk * $nominal * $faktor;
     }
-
-
 }

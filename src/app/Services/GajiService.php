@@ -12,6 +12,9 @@ class GajiService
     {
         $karyawan = Karyawan::where('id_karyawan', $id_karyawan)->first();
 
+        // $gaji_setengah_bulan = ($karyawan->gaji_perbulan ?? 0) / 2;
+        $gaji_setengah_bulan = $karyawan->gaji_perbulan ?? 0;
+
         // Ambil data rekap dari absensi_rekaps
         $rekap = AbsensiRekap::where('karyawan_id', $karyawan->id_karyawan)
             ->where('periode_awal', $periode_awal)
@@ -66,9 +69,10 @@ class GajiService
             'jenis_proyek' => $karyawan->jenis_proyek,
             'periode_awal' => $periode_awal,
             'periode_akhir' => $periode_akhir,
-            'total_hari_kerja' => $total_hari_kerja,
+            // 'total_hari_kerja' => $total_hari_kerja,
             'upah_per_hari' => $upah_per_hari,
-            'total_upah' => $total_upah,
+            // 'total_upah' => $total_upah,
+            'gaji_setengah_bulan_nominal' => $gaji_setengah_bulan,
 
             // Lembur Senin s/d Jumat
             'lembur_senin_jumat_masuk'   => $sj,

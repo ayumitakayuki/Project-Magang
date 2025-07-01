@@ -109,11 +109,12 @@
                         <tr>
                             <td class="px-6 py-4 text-center">a</td>
                             <td class="px-6 py-4">Gaji Setengah bln</td>
-                            <td class="px-6 py-4 text-center">{{ $gaji_data['total_hari_kerja'] }}</td>
-                            <td class="px-6 py-4 text-center">-</td>
-                            <td class="px-6 py-4 text-center">1</td>
-                            <td class="px-6 py-4 text-center">{{ $gaji_data['total_hari_kerja'] }}</td>
+                            <td class="px-6 py-4 text-center">-</td> <!-- Masuk tidak digunakan -->
+                            <td class="px-6 py-4 text-center">-</td> <!-- Faktor tidak digunakan -->
+                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['gaji_setengah_bulan_nominal'] ?? 0, 0, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['gaji_setengah_bulan_nominal'] ?? 0, 0, ',', '.') }}</td>
                         </tr>
+
                         <tr>
                             <td>b</td>
                             <td>Lembur senin s/d jumat</td>
@@ -183,8 +184,12 @@
                         </tr>
                         <tr class="font-bold border-t-2 border-gray-200">
                             <td colspan="5" class="px-6 py-4 text-right">JML</td>
-                            <td class="px-6 py-4 text-right">Rp {{ number_format($gaji_data['total_gaji'], 0, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right">
+                                Rp {{ number_format($sub_total, 0, ',', '.') }}
+                            </td>
                         </tr>
+
+
                         {{-- kasbon --}}
                         <tr x-data="{
                             editing: {
@@ -195,7 +200,8 @@
                             values: {
                                 masuk: '{{ $gaji_data['kasbon_masuk'] ?? 0 }}',
                                 faktor: '{{ $gaji_data['kasbon_faktor'] ?? 0 }}',
-                                nominal: '{{ $gaji_data['kasbon_nominal'] ?? 0 }}'
+                                nominal: '{{ $gaji_data['kasbon_nominal'] ?? 0 }}',
+                                kasbonTotal: '{{ $gaji_data['kasbon'] ?? 0 }}'
                             }
                         }">
                             <td class="px-4 py-2 text-center">h</td>
@@ -247,18 +253,16 @@
                                 <input type="number" 
                                     x-show="editing.nominal" 
                                     x-model="values.nominal"
-                                    @blur="editing.nominal = false; $wire.updateKasbonField('nominal', values.nominal)"
-                                    @keydown.enter="editing.nominal = false; $wire.updateKasbonField('nominal', values.nominal)"
+                                    @blur="editing.nominal = false; $wire.updateKasbonField('nominal_lembur', values.nominal)"
+                                    @keydown.enter="editing.nominal = false; $wire.updateKasbonField('nominal_lembur', values.nominal)"
                                     class="w-16 text-sm border-gray-300 rounded-md">
                             </td>
                             <td class="px-4 py-2 text-center">
                                 <div x-show="!editing.kasbonTotal" 
                                     @click="editing.kasbonTotal = true" 
                                     class="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded inline-flex items-center gap-1">
-                                    {{ isset($gaji_data['kasbon']) && isset($gaji_data['kasbon_faktor']) 
-                                        ? number_format($gaji_data['kasbon'] * $gaji_data['kasbon_faktor'], 0, ',', '.') 
-                                        : '0' 
-                                    }}
+                                    {{ number_format($gaji_data['kasbon'] ?? 0, 0, ',', '.') }}
+
                                     <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                                             d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
