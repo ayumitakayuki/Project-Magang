@@ -106,6 +106,14 @@ class GajiService
             
             'total_lembur' => $total_lembur,
             'total_gaji' => $total_gaji,
+
+            'nominals' => [
+                'uang_makan_lembur_malam' => $karyawan->uang_makan_lembur_malam ?? 0,
+                'uang_makan_lembur_jalan' => $karyawan->uang_makan_lembur_jalan ?? 0,
+                'bpjs_kesehatan' => $karyawan->potongan_bpjs_kesehatan ?? 0,
+                'bpjs_tk' => $karyawan->potongan_tenaga_kerja ?? 0,
+                'bpjs_gabungan' => $karyawan->potongan_bpjs_kesehatan_tk ?? 0,
+            ],
         ];
     }
 }

@@ -33,11 +33,11 @@ class SlipGaji extends Page
     ];
 
     protected $rules = [
-        'newItem.type' => 'required',
+        'newItem.type' => 'required|string',
         'newItem.masuk' => 'required|numeric|min:0',
-        'newItem.faktor' => 'required|numeric|min:0',
+        'newItem.faktor' => 'required|numeric|min:0', // ✅ ini betul
         'newItem.nominal_lembur' => 'required|numeric|min:0',
-        'newItem.total' => 'required|numeric|min:0'
+        'newItem.total' => 'required|numeric|min:0',
     ];
 
     public static function getNavigationGroup(): ?string
@@ -88,42 +88,33 @@ class SlipGaji extends Page
 
     public function addItem()
     {
+        // Pastikan data numerik valid
+        foreach (['masuk', 'faktor', 'nominal_lembur'] as $field) {
+            if (!is_numeric($this->newItem[$field])) {
+                $this->newItem[$field] = 0;
+            }
+        }
+
         $this->validate([
-            'newItem.type' => 'required',
+            'newItem.type' => 'required|string',
             'newItem.masuk' => 'required|numeric|min:0',
             'newItem.faktor' => 'required|numeric|min:0',
             'newItem.nominal_lembur' => 'required|numeric|min:0',
         ]);
-        $this->newItem['total'] = 
-            (float)$this->newItem['masuk'] * 
-            (float)$this->newItem['faktor'] * 
-            (float)$this->newItem['nominal_lembur'];
 
-        $this->validate([
-            'newItem.total' => 'required|numeric|min:0'
-        ]);
+        $masuk = (float) $this->newItem['masuk'];
+        $faktor = (float) $this->newItem['faktor'];
+        $nominal = (float) $this->newItem['nominal_lembur'];
+        $total = $masuk * $nominal;
+
+        $this->newItem['total'] = $total;
 
         $itemTypes = [
-            'uang_makan_lembur_malam' => [
-                'keterangan' => 'Uang Makan Lembur Malam',
-                'no' => 'i'
-            ],
-            'uang_makan_lembur_jalan' => [
-                'keterangan' => 'Uang Makan Lembur Jalan',
-                'no' => 'j'
-            ],
-            'bpjs_kesehatan' => [
-                'keterangan' => 'Potongan BPJS Kesehatan',
-                'no' => 'k'
-            ],
-            'bpjs_tk' => [
-                'keterangan' => 'Potongan BPJS TK',
-                'no' => 'l'
-            ],
-            'bpjs_gabungan' => [
-                'keterangan' => 'Potongan BPJS Kesehatan + TK',
-                'no' => 'm'
-            ]
+            'uang_makan_lembur_malam' => ['keterangan' => 'Uang Makan Lembur Malam', 'no' => 'i'],
+            'uang_makan_lembur_jalan' => ['keterangan' => 'Uang Makan Lembur Jalan', 'no' => 'j'],
+            'bpjs_kesehatan' => ['keterangan' => 'Potongan BPJS Kesehatan', 'no' => 'k'],
+            'bpjs_tk' => ['keterangan' => 'Potongan BPJS TK', 'no' => 'l'],
+            'bpjs_gabungan' => ['keterangan' => 'Potongan BPJS Kesehatan + TK', 'no' => 'm']
         ];
 
         $type = $this->newItem['type'];
@@ -133,39 +124,34 @@ class SlipGaji extends Page
         }
 
         $keterangan = $itemTypes[$type]['keterangan'];
-        
-        // Check if item already exists
+
         if (collect($this->additional_items)->contains('keterangan', $keterangan)) {
             session()->flash('error', 'Item ' . $keterangan . ' sudah ditambahkan');
             return;
         }
 
-        // Calculate total
-        $total = $this->newItem['masuk'] * $this->newItem['faktor'] * $this->newItem['nominal_lembur'];
-
-        // Add new item
         $this->additional_items[] = [
             'no' => $itemTypes[$type]['no'],
             'keterangan' => $keterangan,
             'masuk' => $this->newItem['masuk'],
-            'tidak_masuk' => '-',
             'faktor' => $this->newItem['faktor'],
-            'jumlah_hari' => $this->newItem['total'],
             'nominal_lembur' => $this->newItem['nominal_lembur'],
-            'total' => $total
-        ];
+            'total' => $this->newItem['total'], 
+    ];
 
-        // Reset form
+        // Reset input
         $this->newItem = [
             'type' => '',
             'masuk' => '',
             'faktor' => '',
             'nominal_lembur' => '',
-            'total' => ''
+            'total' => '',
         ];
 
         $this->hitungSlipGaji();
     }
+
+
 
     public function deleteItem($index)
     {
@@ -226,4 +212,32 @@ class SlipGaji extends Page
         
         return $subTotal;
     }
+    public function updatedNewItemType($value)
+    {
+        $nominals = $this->gaji_data['nominals'] ?? [];
+
+        $this->newItem['nominal_lembur'] = $nominals[$value] ?? 0;
+        $this->recalculateTotal();
+    }
+
+    public function updatedNewItemMasuk()
+    {
+        $this->recalculateTotal();
+    }
+
+    public function updatedNewItemNominalLembur()
+    {
+        $this->recalculateTotal();
+    }
+
+    private function recalculateTotal()
+    {
+        $masuk = (float) ($this->newItem['masuk'] ?? 0);
+        $nominal = (float) ($this->newItem['nominal_lembur'] ?? 0);
+        $faktor = (float) ($this->newItem['faktor'] ?? 1);
+
+        $this->newItem['total'] = $masuk * $nominal * $faktor;
+    }
+
+
 }

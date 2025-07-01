@@ -160,9 +160,9 @@
                                 </button>
                             </td>
                             <td class="px-6 py-4 text-center">{{ $item['masuk'] }}</td>
-                            <td class="px-6 py-4 text-center">{{ $item['tidak_masuk'] }}</td>
                             <td class="px-6 py-4 text-center">{{ $item['faktor'] }}</td>
-                            <td class="px-6 py-4 text-center">{{ $item['jumlah_hari'] }}</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($item['nominal_lembur'], 0, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($item['total'], 0, ',', '.') }}</td>
                         </tr>
                         @endforeach
                         <tr>
@@ -283,16 +283,18 @@
                 <!-- Add Item Form -->
                 <div x-data="{ 
                     showForm: false,
+                    karyawanNominals: @js($gaji_data['nominals'] ?? []),
                     calculateTotal() {
                         const masuk = parseFloat(this.formData.masuk) || 0;
-                        const faktor = parseFloat(this.formData.faktor) || 0;
                         const nominal = parseFloat(this.formData.nominal_lembur) || 0;
-                        this.formData.total = masuk * faktor * nominal;
+                        const faktor = parseFloat(this.formData.faktor) || 1;
+                        this.formData.total = masuk * nominal * faktor;
+                        $wire.newItem.total = this.formData.total; // sinkron ke Livewire
                     },
                     formData: {
                         type: '',
                         masuk: '',
-                        faktor: '',
+                        faktor: '', 
                         nominal_lembur: '',
                         total: ''
                     }
@@ -316,8 +318,14 @@
                             <div class="grid grid-cols-3 gap-4">
                                 <div class="col-span-3">
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Jenis Item</label>
-                                    <select x-model="formData.type" 
-                                            wire:model="newItem.type" 
+                                    <select x-model="formData.type"
+                                            @change="
+                                                formData.nominal_lembur = karyawanNominals[formData.type] || 0;
+                                                $wire.newItem.nominal_lembur = formData.nominal_lembur;
+                                                $wire.newItem.type = formData.type;
+                                                calculateTotal();
+                                            "
+                                            wire:model="newItem.type"
                                             class="w-full rounded-md border-gray-300 shadow-sm">
                                         <option value="">Pilih Item...</option>
                                         <optgroup label="Uang Makan">
@@ -330,47 +338,58 @@
                                             <option value="bpjs_gabungan">Potongan BPJS Kesehatan + TK</option>
                                         </optgroup>
                                     </select>
-                                </div>
 
+                                </div>
                                 <div>
                                     <label class="text-sm font-medium text-gray-700">Masuk</label>
                                     <input type="number" 
                                         x-model="formData.masuk"
-                                        wire:model="newItem.masuk"
-                                        @input="calculateTotal"
+                                        wire:model.defer="newItem.masuk"
+                                        @input="
+                                            $wire.newItem.masuk = formData.masuk;
+                                            calculateTotal();
+                                        "
                                         class="mt-1 w-full rounded-md border-gray-300 shadow-sm text-sm"
                                         placeholder="0">
                                 </div>
-
                                 <div>
                                     <label class="text-sm font-medium text-gray-700">Faktor</label>
                                     <input type="number" 
                                         x-model="formData.faktor"
-                                        wire:model="newItem.faktor"
-                                        @input="calculateTotal"
+                                        wire:model.defer="newItem.faktor"
+                                        @input="
+                                            $wire.newItem.faktor = formData.faktor;
+                                            calculateTotal();
+                                        "
                                         step="0.1"
                                         class="mt-1 w-full rounded-md border-gray-300 shadow-sm text-sm"
-                                        placeholder="0">
+                                        placeholder="1">
+
                                 </div>
                                 <div>
                                     <label class="text-sm font-medium text-gray-700">Nominal</label>
                                     <input type="number" 
                                         x-model="formData.nominal_lembur"
-                                        wire:model="newItem.nominal_lembur"
-                                        @input="calculateTotal"
+                                        wire:model.defer="newItem.nominal_lembur"
+                                        @input="
+                                            $wire.newItem.nominal_lembur = formData.nominal_lembur;
+                                            calculateTotal();
+                                        "
                                         class="mt-1 w-full rounded-md border-gray-300 shadow-sm text-sm"
                                         placeholder="0">
+
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Total</label>
                                     <input type="number" 
                                         x-model="formData.total"
-                                        wire:model="newItem.total"
+                                        wire:model.defer="newItem.total"
                                         class="w-full rounded-md border-gray-300 shadow-sm bg-gray-50"
                                         readonly>
-                                </div>
-                            </div>
 
+                                </div>
+
+                            </div>
                             <div class="mt-4 flex justify-end space-x-2">
                                 <button type="button" 
                                         @click="showForm = false"
