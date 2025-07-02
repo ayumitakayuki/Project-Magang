@@ -6,6 +6,9 @@ use App\Models\Karyawan;
 use App\Services\GajiService;
 use Filament\Pages\Page;
 use Illuminate\Http\Request;
+use App\Models\Gaji;
+use App\Models\GajiDetail;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class SlipGaji extends Page
@@ -255,4 +258,129 @@ class SlipGaji extends Page
 
         $this->newItem['total'] = $masuk * $nominal * $faktor;
     }
+
+    public function simpanSlipGaji()
+    {
+        DB::beginTransaction();
+
+        try {
+            // Simpan header ke tabel `gaji`
+            $gaji = Gaji::create([
+                'id_karyawan' => $this->gaji_data['id_karyawan'],
+                'nama' => $this->gaji_data['nama'],
+                'status' => $this->gaji_data['status'],
+                'lokasi' => $this->gaji_data['lokasi'],
+                'jenis_proyek' => $this->gaji_data['jenis_proyek'],
+                'periode_awal' => $this->gaji_data['periode_awal'],
+                'periode_akhir' => $this->gaji_data['periode_akhir'],
+            ]);
+
+            // Detail: a - Gaji Setengah Bulan
+            GajiDetail::create([
+                'gaji_id' => $gaji->id,
+                'kode' => 'a',
+                'keterangan' => 'Gaji Setengah bln',
+                'masuk' => null,
+                'faktor' => null,
+                'nominal' => $this->gaji_data['gaji_setengah_bulan_nominal'],
+                'total' => $this->gaji_data['gaji_setengah_bulan_nominal'],
+            ]);
+
+            // b - e: Lembur
+            $lemburRows = [
+                ['kode' => 'b', 'tipe' => 'senin_jumat', 'label' => 'Lembur Senin s/d Jumat'],
+                ['kode' => 'c', 'tipe' => 'sabtu', 'label' => 'Lembur Sabtu'],
+                ['kode' => 'd', 'tipe' => 'minggu', 'label' => 'Lembur Minggu'],
+                ['kode' => 'e', 'tipe' => 'hari_besar', 'label' => 'Lembur Hari Besar'],
+            ];
+
+            foreach ($lemburRows as $row) {
+                GajiDetail::create([
+                    'gaji_id' => $gaji->id,
+                    'kode' => $row['kode'],
+                    'keterangan' => $row['label'],
+                    'masuk' => $this->gaji_data["lembur_{$row['tipe']}_masuk"],
+                    'faktor' => $this->gaji_data["lembur_{$row['tipe']}_faktor"],
+                    'nominal' => $this->gaji_data["lembur_{$row['tipe']}_nominal"],
+                    'total' => $this->gaji_data["lembur_{$row['tipe']}_total"],
+                ]);
+            }
+
+            // Tambahan manual (uang makan, potongan BPJS)
+            foreach ($this->additional_items as $item) {
+                GajiDetail::create([
+                    'gaji_id' => $gaji->id,
+                    'kode' => $item['no'],
+                    'keterangan' => $item['keterangan'],
+                    'masuk' => $item['masuk'],
+                    'faktor' => $item['faktor'],
+                    'nominal' => $item['nominal_lembur'],
+                    'total' => $item['total'],
+                ]);
+            }
+
+            // f - Potongan Tidak Masuk
+            GajiDetail::create([
+                'gaji_id' => $gaji->id,
+                'kode' => 'f',
+                'keterangan' => 'Potongan Gaji Tdk Masuk (Perjam)',
+                'masuk' => $this->gaji_data['potongan_tidak_masuk_masuk'],
+                'faktor' => null,
+                'nominal' => $this->gaji_data['potongan_tidak_masuk_nominal'],
+                'total' => $this->gaji_data['potongan_tidak_masuk_total'],
+            ]);
+
+            // g - Potongan Tidak Disiplin
+            GajiDetail::create([
+                'gaji_id' => $gaji->id,
+                'kode' => 'g',
+                'keterangan' => 'Potongan Gaji Tdk Disiplin',
+                'masuk' => $this->gaji_data['potongan_tidak_disiplin_masuk'],
+                'faktor' => null,
+                'nominal' => $this->gaji_data['potongan_tidak_disiplin_nominal'],
+                'total' => $this->gaji_data['potongan_tidak_disiplin_total'],
+            ]);
+
+            // jml - Subtotal
+            GajiDetail::create([
+                'gaji_id' => $gaji->id,
+                'kode' => 'jml',
+                'keterangan' => 'Jumlah (Subtotal)',
+                'masuk' => null,
+                'faktor' => null,
+                'nominal' => null,
+                'total' => $this->sub_total,
+            ]);
+
+            // h - Kasbon
+            GajiDetail::create([
+                'gaji_id' => $gaji->id,
+                'kode' => 'h',
+                'keterangan' => 'Kasbon',
+                'masuk' => $this->gaji_data['kasbon_masuk'] ?? 0,
+                'faktor' => $this->gaji_data['kasbon_faktor'] ?? 1,
+                'nominal' => $this->gaji_data['kasbon_nominal'] ?? 0,
+                'total' => $this->gaji_data['kasbon'] ?? 0,
+            ]);
+
+            // grand - Grand Total
+            GajiDetail::create([
+                'gaji_id' => $gaji->id,
+                'kode' => 'grand',
+                'keterangan' => 'Grand Total',
+                'masuk' => null,
+                'faktor' => null,
+                'nominal' => null,
+                'total' => $this->gaji_data['total_gaji'],
+            ]);
+
+            DB::commit();
+            session()->flash('success', 'Slip gaji berhasil disimpan lengkap ke database.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Gagal menyimpan slip gaji: ' . $e->getMessage());
+        }
+    }
+
+
 }

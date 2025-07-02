@@ -6,7 +6,7 @@ use App\Http\Controllers\AbsensiImportController;
 use Livewire\Livewire;
 use App\Exports\AbsensiExport;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Filament\Admin\Pages\SlipGaji;
+use App\Exports\SlipGajiExport;
 
 
 /* NOTE: Do Not Remove
@@ -35,3 +35,7 @@ Route::get('/export-absensi', function (Request $request) {
 
     return Excel::download(new AbsensiExport($start_date, $end_date, $id_karyawan), 'absensi_karyawan.xlsx');
 });
+
+Route::get('/admin/slip-gaji/export/{id}', function ($id) {
+    return Excel::download(new SlipGajiExport($id), 'slip-gaji-'.$id.'.xlsx');
+})->name('slip-gaji.export');

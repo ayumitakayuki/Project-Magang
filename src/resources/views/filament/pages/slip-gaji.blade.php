@@ -41,8 +41,30 @@
             </div>
         @endif
 
-        @if(!empty($gaji_data))
-            <!-- ...existing gaji data display code... -->
+        @if (session()->has('success'))
+            <div 
+                x-data="{ show: true }" 
+                x-init="setTimeout(() => show = false, 3000)" 
+                x-show="show"
+                x-transition
+                class="bg-green-100 border border-green-400 text-green-800 px-4 py-3 rounded mb-4 shadow"
+                role="alert"
+            >
+                <strong>Berhasil!</strong> {{ session('success') }}
+            </div>
+        @endif
+
+        @if (session()->has('error'))
+            <div 
+                x-data="{ show: true }" 
+                x-init="setTimeout(() => show = false, 4000)" 
+                x-show="show"
+                x-transition
+                class="bg-red-100 border border-red-400 text-red-800 px-4 py-3 rounded mb-4 shadow"
+                role="alert"
+            >
+                <strong>Gagal!</strong> {{ session('error') }}
+            </div>
         @endif
 
         @if(!empty($gaji_data))
@@ -189,7 +211,6 @@
                             </td>
                         </tr>
 
-
                         {{-- kasbon --}}
                         <tr x-data="{
                             editing: {
@@ -267,8 +288,7 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                                             d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
                                     </svg>
-                                </div>
-                                
+                                </div>                               
                                 <input type="number" 
                                     x-show="editing.kasbonTotal" 
                                     x-model="values.kasbonTotal" 
@@ -281,6 +301,23 @@
                             <td colspan="5" class="px-6 py-4 text-right">Grand Total</td>
                             <td class="px-6 py-4 text-right">Rp {{ number_format($gaji_data['total_gaji'], 0, ',', '.') }}</td>
                         </tr>
+                        <div class="mt-6 text-right bg-transparent">
+                            <form wire:submit.prevent="simpanSlipGaji">
+                                <button type="submit" 
+                                    class="inline-flex items-center px-6 py-3 bg-emerald-600 text-black text-sm font-semibold rounded-lg shadow-md 
+                                        hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 
+                                        transition duration-200">
+                                    <svg class="w-5 h-5 mr-2 -ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                            d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    Simpan ke Database
+                                </button>
+                            </form>
+                        </div>
+
+
+
                     </tbody>
                 </table>
 

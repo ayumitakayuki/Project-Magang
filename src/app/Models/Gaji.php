@@ -6,24 +6,17 @@ use Illuminate\Database\Eloquent\Model;
 
 class Gaji extends Model
 {
-    protected $table = 'gaji';
-    
+   protected $table = 'gaji';
+
     protected $fillable = [
-        'id_karyawan',
-        'nama',
-        'status',
-        'lokasi',
-        'jenis_proyek',
-        'periode_awal',
-        'periode_akhir',
-        'total_hari_kerja',
-        'total_hari_lembur',
-        'upah_per_hari',
-        'upah_lembur_per_hari',
-        'total_upah',
-        'total_lembur',
-        'total_gaji'
+        'id_karyawan', 'nama', 'status', 'lokasi', 'jenis_proyek',
+        'periode_awal', 'periode_akhir',
     ];
+
+    public function details()
+    {
+        return $this->hasMany(GajiDetail::class);
+    }
 
     public function karyawan()
     {
