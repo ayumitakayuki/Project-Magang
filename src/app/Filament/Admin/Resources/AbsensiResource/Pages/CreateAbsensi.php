@@ -13,12 +13,14 @@ use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\AbsensiImport;
 use Illuminate\Validation\ValidationException;
+use App\Models\Absensi;
+use Carbon\Carbon;
 
 class CreateAbsensi extends CreateRecord
 {
     protected static string $resource = AbsensiResource::class;
 
-    public array $previewData = [];
+    // public array $previewData = [];
 
     protected $casts = [
         'previewData' => 'array',
@@ -132,4 +134,5 @@ class CreateAbsensi extends CreateRecord
 
         return $schema;
     }
+    
 }

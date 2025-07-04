@@ -46,19 +46,26 @@ class AbsensiImport implements ToCollection, WithHeadingRow
 
     public function getPreviewData(): array
     {
-        return $this->previewData->map(function ($row) {
-            return [
-                'name' => $row['name'] ?? '',
-                'tanggal' => $this->parseDate($row['tanggal'] ?? null),
-                'masuk_pagi' => $this->parseTime($row['masuk_pagi'] ?? null),
-                'keluar_siang' => $this->parseTime($row['keluar_siang'] ?? null),
-                'masuk_siang' => $this->parseTime($row['masuk_siang'] ?? null),
-                'pulang_kerja' => $this->parseTime($row['pulang_kerja'] ?? null),
-                'masuk_lembur' => $this->parseTime($row['masuk_lembur'] ?? null),
-                'pulang_lembur' => $this->parseTime($row['pulang_lembur'] ?? null),
-            ];
+        return $this->previewData->map(function ($row, $i) {
+            try {
+                return [
+                    'name' => $row['name'] ?? '',
+                    'tanggal' => $this->parseDate($row['tanggal']),
+                    'masuk_pagi' => $this->parseTime($row['masuk_pagi']),
+                    'keluar_siang' => $this->parseTime($row['keluar_siang']),
+                    'masuk_siang' => $this->parseTime($row['masuk_siang']),
+                    'pulang_kerja' => $this->parseTime($row['pulang_kerja']),
+                    'masuk_lembur' => $this->parseTime($row['masuk_lembur']),
+                    'pulang_lembur' => $this->parseTime($row['pulang_lembur']),
+                ];
+            } catch (\Exception $e) {
+                throw ValidationException::withMessages([
+                    'file' => "Baris ke-" . ($i + 2) . ": " . $e->getMessage(), // +2 untuk header dan index 0
+                ]);
+            }
         })->toArray();
     }
+
 
     private function parseDate($value): ?string
     {
