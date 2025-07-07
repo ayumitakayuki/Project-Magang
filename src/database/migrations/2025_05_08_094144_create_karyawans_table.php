@@ -26,7 +26,11 @@ return new class extends Migration
             $table->decimal('potongan_bpjs_kesehatan', 15, 2)->nullable();
             $table->decimal('potongan_tenaga_kerja', 15, 2)->nullable();
             $table->decimal('potongan_bpjs_kesehatan_tk', 15, 2)->nullable();
-            
+            $table->decimal('faktor_sj', 4, 2)->nullable();
+            $table->decimal('faktor_sabtu', 4, 2)->nullable();
+            $table->decimal('faktor_minggu', 4, 2)->nullable();
+            $table->decimal('faktor_hari_besar', 4, 2)->nullable();
+
             $table->timestamps();
         });
     }

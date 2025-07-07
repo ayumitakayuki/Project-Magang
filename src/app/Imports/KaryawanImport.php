@@ -24,6 +24,10 @@ class KaryawanImport implements ToCollection, WithHeadingRow
         'potongan_bpjs_kesehatan',
         'potongan_tenaga_kerja',
         'potongan_bpjs_kesehatan_tk',
+        'faktor_sj',
+        'faktor_sabtu',
+        'faktor_minggu',
+        'faktor_hari_besar',
     ];
 
     protected ?string $filename = null;
@@ -76,6 +80,10 @@ class KaryawanImport implements ToCollection, WithHeadingRow
                     'potongan_bpjs_kesehatan' => $row['potongan_bpjs_kesehatan'] ?? null,
                     'potongan_tenaga_kerja' => $row['potongan_tenaga_kerja'] ?? null,
                     'potongan_bpjs_kesehatan_tk' => $row['potongan_bpjs_kesehatan_tk'] ?? null,
+                    'faktor_sj' => $row['faktor_sj'] ?? null,
+                    'faktor_sabtu' => $row['faktor_sabtu'] ?? null,
+                    'faktor_minggu' => $row['faktor_minggu'] ?? null,
+                    'faktor_hari_besar' => $row['faktor_hari_besar'] ?? null,
                 ]
             );
         }

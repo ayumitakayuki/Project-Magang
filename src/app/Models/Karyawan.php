@@ -22,6 +22,10 @@ class Karyawan extends Model
         'potongan_bpjs_kesehatan',
         'potongan_tenaga_kerja',
         'potongan_bpjs_kesehatan_tk',
+        'faktor_sj',
+        'faktor_sabtu',
+        'faktor_minggu',
+        'faktor_hari_besar',
     ];
 
     public function absensis(): HasMany

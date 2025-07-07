@@ -96,6 +96,26 @@ class KaryawanResource extends Resource
             TextInput::make('potongan_bpjs_kesehatan_tk')
                 ->label('Potongan BPJS Kesehatan + TK')
                 ->numeric(),
+                
+            TextInput::make('faktor_sj')
+                ->label('Faktor Senin s/d Jumat')
+                ->numeric()
+                ->step('0.1'),
+
+            TextInput::make('faktor_sabtu')
+                ->label('Faktor Sabtu')
+                ->numeric()
+                ->step('0.1'),
+
+            TextInput::make('faktor_minggu')
+                ->label('Faktor Minggu')
+                ->numeric()
+                ->step('0.1'),
+
+            TextInput::make('faktor_hari_besar')
+                ->label('Faktor Hari Besar')
+                ->numeric()
+                ->step('0.1'),       
         ]);
     }
 
@@ -161,6 +181,10 @@ class KaryawanResource extends Resource
                 TextColumn::make('potongan_bpjs_kesehatan_tk')
                     ->label('Potongan BPJS Kesehatan + TK')
                     ->formatStateUsing(fn ($state) => number_format($state, 0, ',', '.')),
+                TextColumn::make('faktor_sj')->label('Faktor SJ'),
+                TextColumn::make('faktor_sabtu')->label('Faktor Sabtu'),
+                TextColumn::make('faktor_minggu')->label('Faktor Minggu'),
+                TextColumn::make('faktor_hari_besar')->label('Faktor Hari Besar'),
             ])
             ->filters([
                 SelectFilter::make('lokasi')

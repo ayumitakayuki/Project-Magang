@@ -17,9 +17,16 @@ class GajiService
 
         // Ambil data rekap dari absensi_rekaps
         $rekap = AbsensiRekap::where('karyawan_id', $karyawan->id_karyawan)
-            ->where('periode_awal', $periode_awal)
-            ->where('periode_akhir', $periode_akhir)
+            ->where(function ($q) use ($periode_awal, $periode_akhir) {
+                $q->whereBetween('periode_awal', [$periode_awal, $periode_akhir])
+                ->orWhereBetween('periode_akhir', [$periode_awal, $periode_akhir])
+                ->orWhere(function ($q2) use ($periode_awal, $periode_akhir) {
+                    $q2->where('periode_awal', '<=', $periode_awal)
+                        ->where('periode_akhir', '>=', $periode_akhir);
+                });
+            })
             ->first();
+
 
         // Ambil nilai lembur dari rekap, default 0 jika tidak ada
         $sj         = $rekap ? $rekap->sj : 0;
@@ -51,10 +58,10 @@ class GajiService
         };
 
         // Perhitungan lembur
-        $lembur_senin_jumat = $sj * 1.5;
-        $lembur_sabtu       = $sabtu * 1.5;
-        $lembur_minggu      = $minggu * 2;
-        $lembur_hari_besar  = $hari_besar * 2;
+        $lembur_senin_jumat = $sj * ($karyawan->faktor_lembur_sj ?? 1.5);
+        $lembur_sabtu       = $sabtu * ($karyawan->faktor_lembur_sabtu ?? 1.5);
+        $lembur_minggu      = $minggu * ($karyawan->faktor_lembur_minggu ?? 2.0);
+        $lembur_hari_besar  = $hari_besar * ($karyawan->faktor_lembur_hari_besar ?? 2.0);
 
         $total_lembur = $lembur_senin_jumat + $lembur_sabtu + $lembur_minggu + $lembur_hari_besar;
 
@@ -76,27 +83,27 @@ class GajiService
 
             // Lembur Senin s/d Jumat
             'lembur_senin_jumat_masuk'   => $sj,
-            'lembur_senin_jumat_faktor'  => 1.5,
+            'lembur_senin_jumat_faktor'  => $karyawan->faktor_lembur_sj ?? 1.5,
             'lembur_senin_jumat_nominal' => $karyawan->gaji_lembur ?? 0,
-            'lembur_senin_jumat_total'   => $sj * 1.5 * ($karyawan->gaji_lembur ?? 0),
+            'lembur_senin_jumat_total'   => $sj * ($karyawan->faktor_lembur_sj ?? 1.5) * ($karyawan->gaji_lembur ?? 0),
 
             // Lembur Sabtu
-            'lembur_sabtu_masuk'   => $sabtu, // total sabtu dari rekap
-            'lembur_sabtu_faktor'  => 1.5,
+            'lembur_sabtu_masuk'   => $sabtu,
+            'lembur_sabtu_faktor'  => $karyawan->faktor_lembur_sabtu ?? 1.5,
             'lembur_sabtu_nominal' => $karyawan->gaji_lembur ?? 0,
-            'lembur_sabtu_total'   => $sabtu * 1.5 * ($karyawan->gaji_lembur ?? 0),
+            'lembur_sabtu_total'   => $sabtu * ($karyawan->faktor_lembur_sabtu ?? 1.5) * ($karyawan->gaji_lembur ?? 0),
 
             // Lembur Minggu
             'lembur_minggu_masuk'   => $minggu,
-            'lembur_minggu_faktor'  => 2,
+            'lembur_minggu_faktor'  => $karyawan->faktor_lembur_minggu ?? 2.0,
             'lembur_minggu_nominal' => $karyawan->gaji_lembur ?? 0,
-            'lembur_minggu_total'   => $minggu * 2 * ($karyawan->gaji_lembur ?? 0),
+            'lembur_minggu_total'   => $minggu * ($karyawan->faktor_lembur_minggu ?? 2.0) * ($karyawan->gaji_lembur ?? 0),
 
             // Lembur Hari Besar
             'lembur_hari_besar_masuk'   => $hari_besar,
-            'lembur_hari_besar_faktor'  => 2,
+            'lembur_hari_besar_faktor'  => $karyawan->faktor_lembur_hari_besar ?? 2.0,
             'lembur_hari_besar_nominal' => $karyawan->gaji_lembur ?? 0,
-            'lembur_hari_besar_total'   => $hari_besar * 2 * ($karyawan->gaji_lembur ?? 0),
+            'lembur_hari_besar_total'   => $hari_besar * ($karyawan->faktor_lembur_hari_besar ?? 2.0) * ($karyawan->gaji_lembur ?? 0),
 
             // Potongan Gaji Tidak Masuk
             'potongan_tidak_masuk_masuk'   => $rekap ? $rekap->tidak_masuk : 0,

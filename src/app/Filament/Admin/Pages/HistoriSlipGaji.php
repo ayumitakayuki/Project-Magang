@@ -9,13 +9,16 @@ use Filament\Tables;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Filters\SelectFilter;
+
+
 
 class HistoriSlipGaji extends Page implements HasTable
 {
     use InteractsWithTable;
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
-    protected static string $view = 'filament.pages.histori-slip-gaji'; // View kosong saja
+    protected static string $view = 'filament.pages.histori-slip-gaji';
     protected static ?string $title = 'Histori Slip Gaji';
 
     public static function getNavigationGroup(): ?string
@@ -66,10 +69,48 @@ class HistoriSlipGaji extends Page implements HasTable
             Tables\Columns\TextColumn::make('aksi')
                 ->label('Aksi')
                 ->html()
-                ->getStateUsing(fn ($record) =>
-                    '<a href="' . route('filament.admin.pages.detail-slip-gaji', ['id' => $record->id]) . '" class="text-blue-600 hover:underline">Lihat</a>'
-                )
+                ->getStateUsing(function ($record) {
+                    $lihatUrl = route('filament.admin.pages.detail-slip-gaji', ['id' => $record->id]);
+                    $editUrl = route('filament.admin.pages.slip-gaji-hitung', ['id' => $record->id]);
+
+                    return <<<HTML
+                        <div class="flex items-center justify-center gap-3">
+                            <a href="{$lihatUrl}" class="text-blue-600 hover:underline">Lihat</a>
+                            <a href="{$editUrl}" class="text-orange-600 hover:underline">Edit</a>
+                        </div>
+                    HTML;
+                })
                 ->alignCenter(),
+
+
+
+        ];
+    }
+    protected function getTableFilters(): array
+    {
+        return [
+            SelectFilter::make('status')
+                ->label('Status')
+                ->options([
+                    'harian lepas' => 'Harian Lepas',
+                    'kontrak' => 'Kontrak',
+                    'tetap' => 'Tetap',
+                ])
+                ->searchable(),
+
+            SelectFilter::make('lokasi')
+                ->label('Lokasi')
+                ->options(
+                    Karyawan::query()->distinct()->pluck('lokasi', 'lokasi')->toArray()
+                )
+                ->searchable(),
+
+            SelectFilter::make('jenis_proyek')
+                ->label('Proyek')
+                ->options(
+                    Karyawan::query()->distinct()->pluck('jenis_proyek', 'jenis_proyek')->toArray()
+                )
+                ->searchable(),
         ];
     }
 }

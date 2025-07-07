@@ -1,0 +1,520 @@
+<x-filament::page>
+    <x-filament::card class="bg-blue-100 rounded-xl p-6">
+        <form method="GET" class="space-y-6">
+            <input type="hidden" name="karyawan_id" value="{{ $karyawan_id }}">
+            @if ($editingGajiId)
+                <div class="mb-4 p-3 bg-yellow-100 border border-yellow-400 text-yellow-800 rounded">
+                    ⚠️ <strong>Mode Edit:</strong> Anda sedang mengedit slip gaji yang sudah pernah disimpan.
+                </div>
+            @endif
+            <div class="flex flex-wrap gap-4">
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700">Periode Awal</label>
+                    <input type="text" name="start_date" id="start_date" value="{{ $start_date }}" 
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                </div>
+
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700">Periode Akhir</label>
+                    <input type="text" name="end_date" id="end_date" value="{{ $end_date }}"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                </div>
+
+                <div class="flex items-end">
+                    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+                        Hitung Gaji
+                    </button>
+                </div>
+            </div>
+        </form>
+
+         <!-- Add error message alert here -->
+        @if (session()->has('error'))
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mt-4" role="alert">
+                <span class="block sm:inline">{{ session('error') }}</span>
+            </div>
+        @endif
+
+        @if (session()->has('success'))
+            <div 
+                x-data="{ show: true }" 
+                x-init="setTimeout(() => show = false, 3000)" 
+                x-show="show"
+                x-transition
+                class="bg-green-100 border border-green-400 text-green-800 px-4 py-3 rounded mb-4 shadow"
+                role="alert"
+            >
+                <strong>Berhasil!</strong> {{ session('success') }}
+            </div>
+        @endif
+
+        @if (session()->has('error'))
+            <div 
+                x-data="{ show: true }" 
+                x-init="setTimeout(() => show = false, 4000)" 
+                x-show="show"
+                x-transition
+                class="bg-red-100 border border-red-400 text-red-800 px-4 py-3 rounded mb-4 shadow"
+                role="alert"
+            >
+                <strong>Gagal!</strong> {{ session('error') }}
+            </div>
+        @endif
+
+        @if(!empty($gaji_data))
+            <div class="mt-8 bg-white p-6 rounded-lg border">
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-bold">SLIP GAJI KARYAWAN</h2>
+                    <p class="text-gray-600">Periode: {{ \Carbon\Carbon::parse($gaji_data['periode_awal'])->format('d M Y') }} - {{ \Carbon\Carbon::parse($gaji_data['periode_akhir'])->format('d M Y') }}</p>
+                </div>
+
+                <div class="w-full bg-white border border-gray-200 rounded-xl shadow px-6 py-4">
+                    <div class="flex flex-wrap sm:flex-nowrap items-center justify-start text-sm text-gray-800 divide-x divide-gray-300">
+
+                        <div class="px-4 first:pl-0">
+                            <span class="font-semibold text-gray-600">ID Karyawan:</span>
+                            <span>{{ $gaji_data['id_karyawan'] }}</span>
+                        </div>
+
+                        <div class="px-4">
+                            <span class="font-semibold text-gray-600">Nama:</span>
+                            <span>{{ $gaji_data['nama'] }}</span>
+                        </div>
+
+                        <div class="px-4">
+                            <span class="font-semibold text-gray-600">Status:</span>
+                            <span>{{ ucwords($gaji_data['status']) }}</span>
+                        </div>
+
+                        <div class="px-4">
+                            <span class="font-semibold text-gray-600">Lokasi:</span>
+                            <span>{{ ucwords($gaji_data['lokasi']) }}</span>
+                        </div>
+
+                        @if($gaji_data['jenis_proyek'])
+                            <div class="px-4">
+                                <span class="font-semibold text-gray-600">Proyek:</span>
+                                <span>{{ $gaji_data['jenis_proyek'] }}</span>
+                            </div>
+                        @endif
+
+                    </div>
+                </div>
+
+
+                <table class="custom-table">
+                    <!-- Table Header -->
+                    <thead>
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Keterangan</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Masuk</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Faktor</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Nominal Lembur</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Fixed Items -->
+                        <tr>
+                            <td class="px-6 py-4 text-center">a</td>
+                            <td class="px-6 py-4">Gaji Setengah bln</td>
+                            <td class="px-6 py-4 text-center">-</td> <!-- Masuk tidak digunakan -->
+                            <td class="px-6 py-4 text-center">-</td> <!-- Faktor tidak digunakan -->
+                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['gaji_setengah_bulan_nominal'] ?? 0, 0, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['gaji_setengah_bulan_nominal'] ?? 0, 0, ',', '.') }}</td>
+                        </tr>
+
+                        <tr>
+                            <td>b</td>
+                            <td>Lembur senin s/d jumat</td>
+                            <td>{{ $gaji_data['lembur_senin_jumat_masuk'] }}</td>
+                            <td class="text-center">{{ $gaji_data['lembur_senin_jumat_faktor'] }}</td>
+                            <td class="text-right">{{ number_format($gaji_data['lembur_senin_jumat_nominal'], 0, ',', '.') }}</td>
+                            <td class="text-right">{{ number_format($gaji_data['lembur_senin_jumat_total'], 0, ',', '.') }}</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-4 text-center">c</td>
+                            <td class="px-6 py-4">Lembur Sabtu</td>
+                            <td>{{ $gaji_data['lembur_sabtu_masuk'] }}</td>
+                            <td class="text-center">{{ $gaji_data['lembur_sabtu_faktor'] }}</td>
+                            <td class="text-right">{{ number_format($gaji_data['lembur_sabtu_nominal'], 0, ',', '.') }}</td>
+                            <td class="text-right">{{ number_format($gaji_data['lembur_sabtu_total'], 0, ',', '.') }}</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-4 text-center">d</td>
+                            <td class="px-6 py-4">Lembur Minggu</td>
+                            <td class="px-6 py-4 text-center">{{ $gaji_data['lembur_minggu_masuk'] }}</td>
+                            <td class="px-6 py-4 text-center">{{ $gaji_data['lembur_minggu_faktor'] }}</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['lembur_minggu_nominal'], 0, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['lembur_minggu_total'], 0, ',', '.') }}</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-4 text-center">e</td>
+                            <td class="px-6 py-4">Lembur Hari Besar</td>
+                            <td class="px-6 py-4 text-center">{{ $gaji_data['lembur_hari_besar_masuk'] }}</td>
+                            <td class="px-6 py-4 text-center">{{ $gaji_data['lembur_hari_besar_faktor'] }}</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['lembur_hari_besar_nominal'], 0, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['lembur_hari_besar_total'], 0, ',', '.') }}</td>
+                        </tr>
+                        @foreach($additional_items as $index => $item)
+                        <tr>
+                            <td class="px-6 py-4 text-center">{{ $item['no'] }}</td>
+                            <td class="px-6 py-4 flex justify-between items-center">
+                                {{ $item['keterangan'] }}
+                                <button wire:click="deleteItem({{ $index }})" 
+                                        class="text-red-600 hover:text-red-800 focus:outline-none ml-2"
+                                        title="Hapus item">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                            </td>
+                            <td class="px-6 py-4 text-center">{{ $item['masuk'] }}</td>
+                            <td class="px-6 py-4 text-center">{{ $item['faktor'] }}</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($item['nominal_lembur'], 0, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($item['total'], 0, ',', '.') }}</td>
+                        </tr>
+                        @endforeach
+                        <tr>
+                            <td class="px-6 py-4 text-center">f</td>
+                            <td class="px-6 py-4">Potongan Gaji Tdk Masuk (Perjam)</td>
+                            <td class="px-6 py-4 text-center">{{ $gaji_data['potongan_tidak_masuk_masuk'] }}</td>
+                            <td class="px-6 py-4 text-center">-</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['potongan_tidak_masuk_nominal'], 0, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['potongan_tidak_masuk_total'], 0, ',', '.') }}</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-4 text-center">g</td>
+                            <td class="px-6 py-4">Potongan Gaji Tdk Disiplin</td>
+                            <td class="px-6 py-4 text-center">{{ $gaji_data['potongan_tidak_disiplin_masuk'] }}</td>
+                            <td class="px-6 py-4 text-center">-</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['potongan_tidak_disiplin_nominal'], 0, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['potongan_tidak_disiplin_total'], 0, ',', '.') }}</td>
+                        </tr>
+                        <tr class="font-bold border-t-2 border-gray-200">
+                            <td colspan="5" class="px-6 py-4 text-right">JML</td>
+                            <td class="px-6 py-4 text-right">
+                                Rp {{ number_format($sub_total, 0, ',', '.') }}
+                            </td>
+                        </tr>
+
+                        {{-- kasbon --}}
+                        <tr x-data="{
+                            editing: {
+                                masuk: false,
+                                faktor: false,
+                                nominal: false
+                            },
+                            values: {
+                                masuk: '{{ $gaji_data['kasbon_masuk'] ?? 0 }}',
+                                faktor: '{{ $gaji_data['kasbon_faktor'] ?? 0 }}',
+                                nominal: '{{ $gaji_data['kasbon_nominal'] ?? 0 }}',
+                                kasbonTotal: '{{ $gaji_data['kasbon'] ?? 0 }}'
+                            }
+                        }">
+                            <td class="px-4 py-2 text-center">h</td>
+                            <td class="px-4 py-2">Kasbon</td>
+                            <td class="px-4 py-2 text-center">
+                                <div x-show="!editing.masuk" 
+                                    @click="editing.masuk = true" 
+                                    class="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded inline-flex items-center gap-1">
+                                    {{ $gaji_data['kasbon_masuk'] ?? '-' }}
+                                    <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                                    </svg>
+                                </div>
+                                <input type="number" 
+                                    x-show="editing.masuk" 
+                                    x-model="values.masuk"
+                                    @blur="editing.masuk = false; $wire.updateKasbonField('masuk', values.masuk)"
+                                    @keydown.enter="editing.masuk = false; $wire.updateKasbonField('masuk', values.masuk)"
+                                    class="w-16 text-sm border-gray-300 rounded-md">
+                            </td>
+                            <td class="px-4 py-2 text-center">
+                                <div x-show="!editing.faktor" 
+                                    @click="editing.faktor = true" 
+                                    class="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded inline-flex items-center gap-1">
+                                    {{ $gaji_data['kasbon_faktor'] ?? '1' }}
+                                    <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                                    </svg>
+                                </div>
+                                
+                                <input type="number" 
+                                    x-show="editing.faktor" 
+                                    x-model="values.faktor" 
+                                    step="0.1" 
+                                    @blur="editing.faktor = false; $wire.updateKasbonField('faktor', values.faktor)" 
+                                    @keydown.enter="editing.faktor = false; $wire.updateKasbonField('faktor', values.faktor)" 
+                                    class="w-16 text-sm border-gray-300 rounded-md">
+                            </td>
+                            <td class="px-4 py-2 text-center">
+                                <div x-show="!editing.nominal" 
+                                    @click="editing.nominal = true" 
+                                    class="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded inline-flex items-center gap-1">
+                                    Rp {{ number_format($gaji_data['kasbon_nominal'] ?? 0, 0, ',', '.') }}
+                                    <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                                    </svg>
+                                </div>
+                                <input type="number" 
+                                    x-show="editing.nominal" 
+                                    x-model="values.nominal"
+                                    @blur="editing.nominal = false; $wire.updateKasbonField('nominal_lembur', values.nominal)"
+                                    @keydown.enter="editing.nominal = false; $wire.updateKasbonField('nominal_lembur', values.nominal)"
+                                    class="w-16 text-sm border-gray-300 rounded-md">
+                            </td>
+                            <td class="px-4 py-2 text-center">
+                                <div x-show="!editing.kasbonTotal" 
+                                    @click="editing.kasbonTotal = true" 
+                                    class="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded inline-flex items-center gap-1">
+                                    {{ number_format($gaji_data['kasbon'] ?? 0, 0, ',', '.') }}
+
+                                    <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                                    </svg>
+                                </div>                               
+                                <input type="number" 
+                                    x-show="editing.kasbonTotal" 
+                                    x-model="values.kasbonTotal" 
+                                    @blur="editing.kasbonTotal = false; $wire.updateKasbonField('total', values.kasbonTotal)" 
+                                    @keydown.enter="editing.kasbonTotal = false; $wire.updateKasbonField('total', values.kasbonTotal)" 
+                                    class="w-20 text-sm border-gray-300 rounded-md">
+                            </td>
+                        </tr>
+                        <tr class="font-bold">
+                            <td colspan="5" class="px-6 py-4 text-right">Grand Total</td>
+                            <td class="px-6 py-4 text-right">Rp {{ number_format($gaji_data['total_gaji'], 0, ',', '.') }}</td>
+                        </tr>
+                        <div class="mt-6 flex justify-end gap-2">
+                            <form wire:submit.prevent="simpanSlipGaji">
+                                <button type="submit" 
+                                    class="inline-flex items-center px-6 py-3 border text-sm font-medium text-gray-700 border-gray-300 rounded-md hover:bg-gray-100 transition">
+                                    Simpan ke Database
+                                </button>
+                            </form>
+
+                            @if ($editingGajiId)
+                                <a href="{{ route('filament.admin.pages.histori-slip-gaji') }}"
+                                class="inline-flex items-center px-6 py-3 border text-sm font-medium text-gray-700 border-gray-300 rounded-md hover:bg-gray-100 transition">
+                                    Batal Edit
+                                </a>
+                            @endif
+                        </div>
+
+
+
+                    </tbody>
+                </table>
+
+                <!-- Add Item Form -->
+                <div x-data="{ 
+                    showForm: false,
+                    karyawanNominals: @js($gaji_data['nominals'] ?? []),
+                    calculateTotal() {
+                        const masuk = parseFloat(this.formData.masuk) || 0;
+                        const nominal = parseFloat(this.formData.nominal_lembur) || 0;
+                        const faktor = parseFloat(this.formData.faktor) || 1;
+                        this.formData.total = masuk * nominal * faktor;
+                        $wire.newItem.total = this.formData.total; // sinkron ke Livewire
+                    },
+                    formData: {
+                        type: '',
+                        masuk: '',
+                        faktor: '', 
+                        nominal_lembur: '',
+                        total: ''
+                    }
+                }" class="mt-4">
+                    <button @click="showForm = !showForm" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-150 ease-in-out">
+                        <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                        </svg>
+                        <span class="text-gray-900 font-medium">Tambah Item</span>
+                    </button>
+
+                    <div x-show="showForm"
+                        x-transition:enter="transition ease-out duration-300"
+                        x-transition:enter-start="opacity-0 transform scale-90"
+                        x-transition:enter-end="opacity-100 transform scale-100"
+                        x-transition:leave="transition ease-in duration-300"
+                        x-transition:leave-start="opacity-100 transform scale-100"
+                        x-transition:leave-end="opacity-0 transform scale-90"
+                        class="mt-4 p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
+                        <form wire:submit.prevent="addItem">
+                            <div class="grid grid-cols-3 gap-4">
+                                <div class="col-span-3">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Jenis Item</label>
+                                    <select x-model="formData.type"
+                                            @change="
+                                                formData.nominal_lembur = karyawanNominals[formData.type] || 0;
+                                                $wire.newItem.nominal_lembur = formData.nominal_lembur;
+                                                $wire.newItem.type = formData.type;
+                                                calculateTotal();
+                                            "
+                                            wire:model="newItem.type"
+                                            class="w-full rounded-md border-gray-300 shadow-sm">
+                                        <option value="">Pilih Item...</option>
+                                        <optgroup label="Uang Makan">
+                                            <option value="uang_makan_lembur_malam">Uang Makan Lembur Malam</option>
+                                            <option value="uang_makan_lembur_jalan">Uang Makan Lembur Jalan</option>
+                                        </optgroup>
+                                        <optgroup label="Potongan">
+                                            <option value="bpjs_kesehatan">Potongan BPJS Kesehatan</option>
+                                            <option value="bpjs_tk">Potongan BPJS TK</option>
+                                            <option value="bpjs_gabungan">Potongan BPJS Kesehatan + TK</option>
+                                        </optgroup>
+                                    </select>
+
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-gray-700">Masuk</label>
+                                    <input type="number" 
+                                        x-model="formData.masuk"
+                                        wire:model.defer="newItem.masuk"
+                                        @input="
+                                            $wire.newItem.masuk = formData.masuk;
+                                            calculateTotal();
+                                        "
+                                        class="mt-1 w-full rounded-md border-gray-300 shadow-sm text-sm"
+                                        placeholder="0">
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-gray-700">Faktor</label>
+                                    <input type="number" 
+                                        x-model="formData.faktor"
+                                        wire:model.defer="newItem.faktor"
+                                        @input="
+                                            $wire.newItem.faktor = formData.faktor;
+                                            calculateTotal();
+                                        "
+                                        step="0.1"
+                                        class="mt-1 w-full rounded-md border-gray-300 shadow-sm text-sm"
+                                        placeholder="1">
+
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-gray-700">Nominal</label>
+                                    <input type="number" 
+                                        x-model="formData.nominal_lembur"
+                                        wire:model.defer="newItem.nominal_lembur"
+                                        @input="
+                                            $wire.newItem.nominal_lembur = formData.nominal_lembur;
+                                            calculateTotal();
+                                        "
+                                        class="mt-1 w-full rounded-md border-gray-300 shadow-sm text-sm"
+                                        placeholder="0">
+
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Total</label>
+                                    <input type="number" 
+                                        x-model="formData.total"
+                                        wire:model.defer="newItem.total"
+                                        class="w-full rounded-md border-gray-300 shadow-sm bg-gray-50"
+                                        readonly>
+
+                                </div>
+
+                            </div>
+                            <div class="mt-4 flex justify-end space-x-2">
+                                <button type="button" 
+                                        @click="showForm = false"
+                                        class="px-3 py-1 text-sm border border-gray-300 rounded-md">
+                                    Batal
+                                </button>
+                                <button type="submit" 
+                                        class="px-3 py-1 text-sm border border-gray-300 rounded-md">
+                                    Tambah
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        @endif
+    </x-filament::card>
+</x-filament::page>
+
+@push('styles')
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/themes/airbnb.css">
+    <style>
+        .custom-table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 0 auto;
+            background-color: #ffffff;
+            font-size: 0.875rem;
+        }
+
+        .custom-table th,
+        .custom-table td {
+            border: 1px solid black;
+            padding: 8px 12px;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        .custom-table th {
+            background-color: #f3f4f6;
+            font-weight: 600;
+        }
+
+        .custom-table tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+
+        .custom-table tr:hover {
+            background-color: #f1f5f9;
+        }
+
+        .bg-yellow-100 {
+            background-color: #fef9c3;
+        }
+
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            .filament-main-content {
+                position: absolute;
+                left: 0;
+                top: 0;
+            }
+            .filament-main-content * {
+                visibility: visible;
+            }
+            button {
+                display: none !important;
+            }
+            .custom-table {
+                font-size: 0.8rem;
+                background: #ffffff;
+            }
+            .custom-table tr:nth-child(even),
+            .custom-table tr:hover {
+                background: #ffffff;
+            }
+        }
+    </style>
+@endpush
+
+@push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            flatpickr("#start_date", {
+                dateFormat: "Y-m-d",
+                defaultDate: "{{ $start_date }}"
+            });
+            
+            flatpickr("#end_date", {
+                dateFormat: "Y-m-d", 
+                defaultDate: "{{ $end_date }}"
+            });
+        });
+    </script>
+@endpush
