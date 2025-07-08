@@ -1,35 +1,39 @@
-<table>
-    <tr><td><strong>ID Karyawan</strong></td><td>{{ $gaji->id_karyawan }}</td></tr>
-    <tr><td><strong>Nama</strong></td><td>{{ $gaji->nama }}</td></tr>
-    <tr><td><strong>Status</strong></td><td>{{ $gaji->status }}</td></tr>
-    <tr><td><strong>Lokasi</strong></td><td>{{ $gaji->lokasi }}</td></tr>
-    <tr><td><strong>Jenis Proyek</strong></td><td>{{ $gaji->jenis_proyek }}</td></tr>
-    <tr><td><strong>Periode</strong></td><td>{{ $gaji->periode_awal }} s/d {{ $gaji->periode_akhir }}</td></tr>
-</table>
+@foreach ($gaji as $item)
+    <table>
+        <tr><td><strong>ID Karyawan</strong></td><td>{{ $item->id_karyawan }}</td></tr>
+        <tr><td><strong>Nama</strong></td><td>{{ $item->nama }}</td></tr>
+        <tr><td><strong>Status</strong></td><td>{{ $item->status }}</td></tr>
+        <tr><td><strong>Lokasi</strong></td><td>{{ $item->lokasi }}</td></tr>
+        <tr><td><strong>Jenis Proyek</strong></td><td>{{ $item->jenis_proyek }}</td></tr>
+        <tr><td><strong>Periode</strong></td><td>{{ $item->periode_awal }} s/d {{ $item->periode_akhir }}</td></tr>
+    </table>
 
-<br>
+    <br>
 
-<table border="1">
-    <thead>
-        <tr>
-            <th>Kode</th>
-            <th>Keterangan</th>
-            <th>Masuk</th>
-            <th>Faktor</th>
-            <th>Nominal</th>
-            <th>Total</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach ($gaji->details as $item)
+    <table border="1">
+        <thead>
             <tr>
-                <td>{{ $item->kode }}</td>
-                <td>{{ $item->keterangan }}</td>
-                <td>{{ $item->masuk }}</td>
-                <td>{{ $item->faktor }}</td>
-                <td>{{ $item->nominal }}</td>
-                <td>{{ $item->total }}</td>
+                <th>Kode</th>
+                <th>Keterangan</th>
+                <th>Masuk</th>
+                <th>Faktor</th>
+                <th>Nominal</th>
+                <th>Total</th>
             </tr>
-        @endforeach
-    </tbody>
-</table>
+        </thead>
+        <tbody>
+            @foreach ($item->details as $detail)
+                <tr>
+                    <td>{{ $detail->kode }}</td>
+                    <td>{{ $detail->keterangan }}</td>
+                    <td>{{ $detail->masuk }}</td>
+                    <td>{{ $detail->faktor }}</td>
+                    <td>{{ $detail->nominal }}</td>
+                    <td>{{ $detail->total }}</td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+
+    <br><br>
+@endforeach

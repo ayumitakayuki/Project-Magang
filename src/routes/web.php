@@ -7,6 +7,7 @@ use Livewire\Livewire;
 use App\Exports\AbsensiExport;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\SlipGajiExport;
+use App\Exports\SlipGajiPdfExport;
 
 
 /* NOTE: Do Not Remove
@@ -39,3 +40,5 @@ Route::get('/export-absensi', function (Request $request) {
 Route::get('/admin/slip-gaji/export/{id}', function ($id) {
     return Excel::download(new SlipGajiExport($id), 'slip-gaji-'.$id.'.xlsx');
 })->name('slip-gaji.export');
+
+Route::get('/slip-gaji/{id}/export-pdf', SlipGajiPdfExport::class)->name('slip-gaji.export.pdf');

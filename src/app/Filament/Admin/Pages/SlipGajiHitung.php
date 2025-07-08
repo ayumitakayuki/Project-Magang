@@ -54,15 +54,24 @@ class SlipGajiHitung extends Page
         return 'Penggajian';
     }
 
-    public function mount()
+    public function mount(): void
     {
-        $this->all_karyawan = Karyawan::orderBy('nama')->get();
+        $this->editingGajiId = request()->query('id');
+        $this->karyawan_id = request()->query('karyawan_id');
+        $this->start_date = request()->query('start_date');
+        $this->end_date = request()->query('end_date');
 
-        $this->karyawan_id = request('karyawan_id');
-        $this->start_date = request('start_date');
-        $this->end_date = request('end_date');
+        if ($this->editingGajiId) {
+            $gaji = Gaji::with('details')->findOrFail($this->editingGajiId);
 
-        if ($this->karyawan_id && $this->start_date && $this->end_date) {
+            $this->karyawan_id = $gaji->id_karyawan;
+            $this->start_date = $gaji->periode_awal->format('Y-m-d');
+            $this->end_date = $gaji->periode_akhir->format('Y-m-d');
+
+            // pastikan perhitungan dijalankan ulang
+            $this->hitungGaji();
+            $this->loadGajiData(); // jika perlu muat data detail juga
+        } elseif ($this->start_date && $this->end_date && $this->karyawan_id) {
             $this->hitungGaji();
         }
     }

@@ -22,4 +22,9 @@ class Gaji extends Model
     {
         return $this->belongsTo(Karyawan::class, 'id_karyawan', 'id_karyawan');
     }
+    protected $casts = [
+        'periode_awal' => 'datetime',
+        'periode_akhir' => 'datetime',
+    ];
+
 }

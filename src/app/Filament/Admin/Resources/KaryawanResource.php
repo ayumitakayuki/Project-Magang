@@ -142,13 +142,12 @@ class KaryawanResource extends Resource
                     ->sortable(),
 
                 TextColumn::make('jenis_proyek')
-                    ->label('Jenis Proyek')
-                    ->sortable()
-                    ->formatStateUsing(function ($state, $record) {
-                        $validProjects = ['Proyek A', 'Proyek B', 'Proyek C'];
-                        return $record->lokasi === 'proyek' && in_array($state, $validProjects) ? $state : null;
-                    })
-                    ->toggleable(isToggledHiddenByDefault: false),
+                ->label('Jenis Proyek')
+                ->sortable()
+                ->formatStateUsing(function ($state, $record) {
+                    $validProjects = ['Proyek A', 'Proyek B', 'Proyek C'];
+                    return $record->lokasi === 'proyek' && in_array($state, $validProjects) ? $state : '-';
+                }),
 
                 TextColumn::make('gaji_perbulan')
                     ->label('Gaji Per Bulan')
@@ -187,13 +186,28 @@ class KaryawanResource extends Resource
                 TextColumn::make('faktor_hari_besar')->label('Faktor Hari Besar'),
             ])
             ->filters([
-                SelectFilter::make('lokasi')
-                    ->label('Filter Lokasi')
-                    ->options(fn () => Karyawan::query()->distinct()->pluck('lokasi', 'lokasi')->filter()),
+            SelectFilter::make('status')
+                ->label('Status')
+                ->options([
+                    'harian lepas' => 'Harian Lepas',
+                    'kontrak' => 'Kontrak',
+                    'tetap' => 'Tetap',
+                ])
+                ->searchable(),
 
-                SelectFilter::make('status')
-                    ->label('Filter Status')
-                    ->options(fn () => Karyawan::query()->distinct()->pluck('status', 'status')->filter()),
+            SelectFilter::make('lokasi')
+                ->label('Lokasi')
+                ->options(
+                    Karyawan::query()->distinct()->pluck('lokasi', 'lokasi')->toArray()
+                )
+                ->searchable(),
+
+            SelectFilter::make('jenis_proyek')
+                ->label('Proyek')
+                ->options(
+                    Karyawan::query()->distinct()->pluck('jenis_proyek', 'jenis_proyek')->toArray()
+                )
+                ->searchable(),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -202,6 +216,8 @@ class KaryawanResource extends Resource
             ->bulkActions([
                 Tables\Actions\DeleteBulkAction::make(),
             ]);
+            
+            
     }
 
     public static function getPages(): array

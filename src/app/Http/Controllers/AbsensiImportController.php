@@ -18,14 +18,6 @@ class AbsensiImportController extends Controller
             abort(404, 'Template file not found.');
         }
     }
-
-    public function showRekap()
-    {
-        $rekapService = new AbsensiRekapService();
-        $rekap = $rekapService->rekapUntukUser('Badru Salam');
-
-        return view('rekap-absensi', compact('rekap'));
-    }
 }
 
 

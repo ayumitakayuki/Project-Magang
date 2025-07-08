@@ -10,8 +10,12 @@ use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Filters\SelectFilter;
-
-
+use Filament\Tables\Actions\BulkAction;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\SlipGajiExport;
 
 class HistoriSlipGaji extends Page implements HasTable
 {
@@ -71,7 +75,12 @@ class HistoriSlipGaji extends Page implements HasTable
                 ->html()
                 ->getStateUsing(function ($record) {
                     $lihatUrl = route('filament.admin.pages.detail-slip-gaji', ['id' => $record->id]);
-                    $editUrl = route('filament.admin.pages.slip-gaji-hitung', ['id' => $record->id]);
+                    $editUrl = route('filament.admin.pages.slip-gaji-hitung', [
+                        'id' => $record->id,
+                        'karyawan_id' => $record->id_karyawan,
+                        'start_date' => \Carbon\Carbon::parse($record->periode_awal)->format('Y-m-d'),
+                        'end_date' => \Carbon\Carbon::parse($record->periode_akhir)->format('Y-m-d'),
+                    ]);
 
                     return <<<HTML
                         <div class="flex items-center justify-center gap-3">
@@ -80,6 +89,7 @@ class HistoriSlipGaji extends Page implements HasTable
                         </div>
                     HTML;
                 })
+
                 ->alignCenter(),
 
 
@@ -111,6 +121,38 @@ class HistoriSlipGaji extends Page implements HasTable
                     Karyawan::query()->distinct()->pluck('jenis_proyek', 'jenis_proyek')->toArray()
                 )
                 ->searchable(),
+        ];
+    }
+    protected function getTableBulkActions(): array
+    {
+        return [
+            Tables\Actions\DeleteBulkAction::make(),
+
+            BulkAction::make('cetak_massal')
+                ->label('Cetak Massal (PDF)')
+                ->icon('heroicon-o-printer')
+                ->action(function (Collection $records) {
+                    $data = [
+                        'gajis' => $records,
+                    ];
+
+                    $pdf = Pdf::loadView('exports.slip-gaji-massal-pdf', $data)->setPaper('a4', 'portrait');
+
+                    $filename = 'Slip-Gaji-Massal-pdf-' . now()->format('Ymd_His') . '.pdf';
+                    $path = storage_path('app/public/' . $filename);
+                    $pdf->save($path);
+
+                    return response()->download($path)->deleteFileAfterSend(true);
+                }),
+            BulkAction::make('export_excel_massal')
+                ->label('Export Excel Massal')
+                ->icon('heroicon-o-document-arrow-down')
+                ->action(function (Collection $records) {
+                    $ids = $records->pluck('id')->toArray();
+                    $filename = 'Slip-Gaji-Massal-' . now()->format('Ymd_His') . '.xlsx';
+
+                    return Excel::download(new SlipGajiExport($ids), $filename);
+                }),
         ];
     }
 }

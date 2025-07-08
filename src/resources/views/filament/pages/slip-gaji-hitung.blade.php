@@ -8,24 +8,38 @@
                 </div>
             @endif
             <div class="flex flex-wrap gap-4">
-                <div class="flex-1">
-                    <label class="block text-sm font-medium text-gray-700">Periode Awal</label>
-                    <input type="text" name="start_date" id="start_date" value="{{ $start_date }}" 
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                </div>
-
-                <div class="flex-1">
-                    <label class="block text-sm font-medium text-gray-700">Periode Akhir</label>
-                    <input type="text" name="end_date" id="end_date" value="{{ $end_date }}"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                </div>
-
-                <div class="flex items-end">
-                    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                        Hitung Gaji
-                    </button>
-                </div>
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700">Periode Awal</label>
+                <input 
+                    type="text" 
+                    name="start_date" 
+                    id="start_date" 
+                    placeholder="{{ now()->toDateString() }}" 
+                    value="{{ request('start_date') }}"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-black">
             </div>
+
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700">Periode Akhir</label>
+                <input 
+                    type="text" 
+                    name="end_date" 
+                    id="end_date" 
+                    placeholder="{{ now()->toDateString() }}" 
+                    value="{{ request('end_date') }}"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-black">
+            </div>
+            <div class="flex items-end">
+                <button type="submit"
+                    class="bg-blue-500 text-black px-6 py-2 rounded-md shadow hover:bg-blue-600 transition-all duration-200 ease-in-out">
+                    Hitung Gaji
+                </button>
+            </div>
+
+
+
+        </div>
+
         </form>
 
          <!-- Add error message alert here -->
@@ -116,8 +130,9 @@
                     </thead>
                     <tbody>
                         <!-- Fixed Items -->
+                        @php $rowIndex = 0; $labels = range('a', 'z'); @endphp
                         <tr>
-                            <td class="px-6 py-4 text-center">a</td>
+                            <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
                             <td class="px-6 py-4">Gaji Setengah bln</td>
                             <td class="px-6 py-4 text-center">-</td> <!-- Masuk tidak digunakan -->
                             <td class="px-6 py-4 text-center">-</td> <!-- Faktor tidak digunakan -->
@@ -126,7 +141,7 @@
                         </tr>
 
                         <tr>
-                            <td>b</td>
+                            <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
                             <td>Lembur senin s/d jumat</td>
                             <td>{{ $gaji_data['lembur_senin_jumat_masuk'] }}</td>
                             <td class="text-center">{{ $gaji_data['lembur_senin_jumat_faktor'] }}</td>
@@ -134,7 +149,7 @@
                             <td class="text-right">{{ number_format($gaji_data['lembur_senin_jumat_total'], 0, ',', '.') }}</td>
                         </tr>
                         <tr>
-                            <td class="px-6 py-4 text-center">c</td>
+                            <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
                             <td class="px-6 py-4">Lembur Sabtu</td>
                             <td>{{ $gaji_data['lembur_sabtu_masuk'] }}</td>
                             <td class="text-center">{{ $gaji_data['lembur_sabtu_faktor'] }}</td>
@@ -142,7 +157,7 @@
                             <td class="text-right">{{ number_format($gaji_data['lembur_sabtu_total'], 0, ',', '.') }}</td>
                         </tr>
                         <tr>
-                            <td class="px-6 py-4 text-center">d</td>
+                            <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
                             <td class="px-6 py-4">Lembur Minggu</td>
                             <td class="px-6 py-4 text-center">{{ $gaji_data['lembur_minggu_masuk'] }}</td>
                             <td class="px-6 py-4 text-center">{{ $gaji_data['lembur_minggu_faktor'] }}</td>
@@ -150,7 +165,7 @@
                             <td class="px-6 py-4 text-right">{{ number_format($gaji_data['lembur_minggu_total'], 0, ',', '.') }}</td>
                         </tr>
                         <tr>
-                            <td class="px-6 py-4 text-center">e</td>
+                            <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
                             <td class="px-6 py-4">Lembur Hari Besar</td>
                             <td class="px-6 py-4 text-center">{{ $gaji_data['lembur_hari_besar_masuk'] }}</td>
                             <td class="px-6 py-4 text-center">{{ $gaji_data['lembur_hari_besar_faktor'] }}</td>
@@ -159,7 +174,7 @@
                         </tr>
                         @foreach($additional_items as $index => $item)
                         <tr>
-                            <td class="px-6 py-4 text-center">{{ $item['no'] }}</td>
+                            <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
                             <td class="px-6 py-4 flex justify-between items-center">
                                 {{ $item['keterangan'] }}
                                 <button wire:click="deleteItem({{ $index }})" 
@@ -177,7 +192,7 @@
                         </tr>
                         @endforeach
                         <tr>
-                            <td class="px-6 py-4 text-center">f</td>
+                            <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
                             <td class="px-6 py-4">Potongan Gaji Tdk Masuk (Perjam)</td>
                             <td class="px-6 py-4 text-center">{{ $gaji_data['potongan_tidak_masuk_masuk'] }}</td>
                             <td class="px-6 py-4 text-center">-</td>
@@ -185,7 +200,7 @@
                             <td class="px-6 py-4 text-right">{{ number_format($gaji_data['potongan_tidak_masuk_total'], 0, ',', '.') }}</td>
                         </tr>
                         <tr>
-                            <td class="px-6 py-4 text-center">g</td>
+                            <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
                             <td class="px-6 py-4">Potongan Gaji Tdk Disiplin</td>
                             <td class="px-6 py-4 text-center">{{ $gaji_data['potongan_tidak_disiplin_masuk'] }}</td>
                             <td class="px-6 py-4 text-center">-</td>
@@ -213,7 +228,7 @@
                                 kasbonTotal: '{{ $gaji_data['kasbon'] ?? 0 }}'
                             }
                         }">
-                            <td class="px-4 py-2 text-center">h</td>
+                            <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
                             <td class="px-4 py-2">Kasbon</td>
                             <td class="px-4 py-2 text-center">
                                 <div x-show="!editing.masuk" 
@@ -235,12 +250,15 @@
                                 <div x-show="!editing.faktor" 
                                     @click="editing.faktor = true" 
                                     class="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded inline-flex items-center gap-1">
-                                    {{ $gaji_data['kasbon_faktor'] ?? '1' }}
+                                    
+                                    {{ empty($gaji_data['kasbon_faktor']) || $gaji_data['kasbon_faktor'] == '1' ? '-' : $gaji_data['kasbon_faktor'] }}
+
                                     <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                                             d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
                                     </svg>
                                 </div>
+
                                 
                                 <input type="number" 
                                     x-show="editing.faktor" 
@@ -304,9 +322,7 @@
                                 </a>
                             @endif
                         </div>
-
-
-
+                    @stack('scripts')
                     </tbody>
                 </table>
 
@@ -329,13 +345,13 @@
                         total: ''
                     }
                 }" class="mt-4">
-                    <button @click="showForm = !showForm" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-150 ease-in-out">
-                        <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                        </svg>
-                        <span class="text-gray-900 font-medium">Tambah Item</span>
+                    <button @click="showForm = !showForm"
+                        <button @click="showForm = !showForm"
+                        class="inline-flex items-center px-3 py-1.5 bg-white border border-gray-300 rounded-md 
+                            hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 
+                            transition-all duration-150 ease-in-out text-sm text-gray-900 font-medium">
+                        Tambah Item
                     </button>
-
                     <div x-show="showForm"
                         x-transition:enter="transition ease-out duration-300"
                         x-transition:enter-start="opacity-0 transform scale-90"
@@ -348,7 +364,9 @@
                             <div class="grid grid-cols-3 gap-4">
                                 <div class="col-span-3">
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Jenis Item</label>
-                                    <select x-model="formData.type"
+                                    <div class="relative overflow-visible z-50">
+                                        <select
+                                            x-model="formData.type"
                                             @change="
                                                 formData.nominal_lembur = karyawanNominals[formData.type] || 0;
                                                 $wire.newItem.nominal_lembur = formData.nominal_lembur;
@@ -356,19 +374,19 @@
                                                 calculateTotal();
                                             "
                                             wire:model="newItem.type"
-                                            class="w-full rounded-md border-gray-300 shadow-sm">
-                                        <option value="">Pilih Item...</option>
-                                        <optgroup label="Uang Makan">
-                                            <option value="uang_makan_lembur_malam">Uang Makan Lembur Malam</option>
-                                            <option value="uang_makan_lembur_jalan">Uang Makan Lembur Jalan</option>
-                                        </optgroup>
-                                        <optgroup label="Potongan">
-                                            <option value="bpjs_kesehatan">Potongan BPJS Kesehatan</option>
-                                            <option value="bpjs_tk">Potongan BPJS TK</option>
-                                            <option value="bpjs_gabungan">Potongan BPJS Kesehatan + TK</option>
-                                        </optgroup>
-                                    </select>
-
+                                            class="w-full rounded-md border-gray-300 shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500 relative z-50 bg-white">
+                                            <option value="">Pilih Item...</option>
+                                            <optgroup label="Uang Makan">
+                                                <option value="uang_makan_lembur_malam">Uang Makan Lembur Malam</option>
+                                                <option value="uang_makan_lembur_jalan">Uang Makan Lembur Jalan</option>
+                                            </optgroup>
+                                            <optgroup label="Potongan">
+                                                <option value="bpjs_kesehatan">Potongan BPJS Kesehatan</option>
+                                                <option value="bpjs_tk">Potongan BPJS TK</option>
+                                                <option value="bpjs_gabungan">Potongan BPJS Kesehatan + TK</option>
+                                            </optgroup>
+                                        </select>
+                                    </div>
                                 </div>
                                 <div>
                                     <label class="text-sm font-medium text-gray-700">Masuk</label>
@@ -499,22 +517,35 @@
                 background: #ffffff;
             }
         }
+        .col-span-3 {
+            overflow: visible !important;
+            position: relative;
+            z-index: 50;
+        }
+
+        select {
+            background-color: white;
+            color: black;
+        }
     </style>
 @endpush
 
 @push('scripts')
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+    window.addEventListener("load", function () {
+        setTimeout(function () {
             flatpickr("#start_date", {
                 dateFormat: "Y-m-d",
-                defaultDate: "{{ $start_date }}"
+                defaultDate: "{{ $start_date ?? '' }}"
             });
-            
+
             flatpickr("#end_date", {
-                dateFormat: "Y-m-d", 
-                defaultDate: "{{ $end_date }}"
+                dateFormat: "Y-m-d",
+                defaultDate: "{{ $end_date ?? '' }}"
             });
-        });
-    </script>
+        }, 100);
+    });
+</script>
 @endpush
+
