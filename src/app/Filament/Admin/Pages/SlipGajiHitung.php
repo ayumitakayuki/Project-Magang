@@ -316,12 +316,7 @@ class SlipGajiHitung extends Page
                 ]);
             }
 
-            // [lanjutkan menyimpan gaji_detail seperti sebelumnya...]
-            // kamu bisa langsung pakai potongan penyimpanan detail yang sudah ada
-            // tidak perlu diubah kecuali ingin mengoptimalkan logika insert batch
 
-            // DETAIL:
-            // a - Gaji Setengah Bulan
             GajiDetail::create([
                 'gaji_id' => $gaji->id,
                 'kode' => 'a',
@@ -332,7 +327,6 @@ class SlipGajiHitung extends Page
                 'total' => $this->gaji_data['gaji_setengah_bulan_nominal'],
             ]);
 
-            // b - e: Lembur
             $lemburRows = [
                 ['kode' => 'b', 'tipe' => 'senin_jumat', 'label' => 'Lembur Senin s/d Jumat'],
                 ['kode' => 'c', 'tipe' => 'sabtu', 'label' => 'Lembur Sabtu'],

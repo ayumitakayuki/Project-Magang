@@ -12,8 +12,12 @@ class GajiService
     {
         $karyawan = Karyawan::where('id_karyawan', $id_karyawan)->first();
 
-        // $gaji_setengah_bulan = ($karyawan->gaji_perbulan ?? 0) / 2;
-        $gaji_setengah_bulan = $karyawan->gaji_perbulan ?? 0;
+        $isHarianLepas = strtolower($karyawan->status) === 'harian lepas';
+
+        $gaji_setengah_bulan = $isHarianLepas
+            ? ($karyawan->gaji_harian ?? 0)
+            : (($karyawan->gaji_perbulan ?? 0));
+
 
         // Ambil data rekap dari absensi_rekaps
         $rekap = AbsensiRekap::where('karyawan_id', $karyawan->id_karyawan)

@@ -131,15 +131,23 @@
                     <tbody>
                         <!-- Fixed Items -->
                         @php $rowIndex = 0; $labels = range('a', 'z'); @endphp
+                        @php
+                            $status = strtolower($gaji_data['status'] ?? '');
+                            $labelGajiPokok = $status === 'harian lepas' ? 'Gaji Harian' : 'Gaji Setengah bln';
+                        @endphp
+
                         <tr>
                             <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
-                            <td class="px-6 py-4">Gaji Setengah bln</td>
-                            <td class="px-6 py-4 text-center">-</td> <!-- Masuk tidak digunakan -->
-                            <td class="px-6 py-4 text-center">-</td> <!-- Faktor tidak digunakan -->
-                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['gaji_setengah_bulan_nominal'] ?? 0, 0, ',', '.') }}</td>
-                            <td class="px-6 py-4 text-right">{{ number_format($gaji_data['gaji_setengah_bulan_nominal'] ?? 0, 0, ',', '.') }}</td>
+                            <td class="px-6 py-4">{{ $labelGajiPokok }}</td>
+                            <td class="px-6 py-4 text-center">-</td>
+                            <td class="px-6 py-4 text-center">-</td>
+                            <td class="px-6 py-4 text-right">
+                                {{ number_format($gaji_data['gaji_setengah_bulan_nominal'] ?? 0, 0, ',', '.') }}
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                {{ number_format($gaji_data['gaji_setengah_bulan_nominal'] ?? 0, 0, ',', '.') }}
+                            </td>
                         </tr>
-
                         <tr>
                             <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
                             <td>Lembur senin s/d jumat</td>

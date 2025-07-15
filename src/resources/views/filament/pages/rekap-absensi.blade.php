@@ -3,10 +3,8 @@
         {{-- FORM FILTER TERPADU --}}
         <form method="GET" class="mb-6 flex flex-wrap items-center gap-2">
 
-            {{-- Hidden input untuk show_all --}}
             <input type="hidden" name="show_all" value="1">
 
-            {{-- Search ID/Name --}}
             <input
                 type="text"
                 name="karyawan_keyword"
@@ -15,7 +13,6 @@
                 class="rounded-lg px-3 py-1 bg-blue-200 text-sm w-64"
             />
 
-            {{-- Status Karyawan --}}
             <select name="status_karyawan"
                 class="rounded-lg px-3 py-1 bg-blue-200 text-sm border border-blue-500">
                 <option value="all" {{ request('status_karyawan') == 'all' ? 'selected' : '' }}>
@@ -328,10 +325,7 @@
                         $grandTotalHariBesar = $rekap['hari_besar'] ?? 0;
                         $grandTotalTidakMasuk = $rekap['tidak_masuk'] ?? 0;
 
-                        // Cek apakah sisa_jam tersedia
                         $grandTotalSisaJam = $rekap['per_user'][$nama_karyawan]['sisa_jam'] ?? 0;
-
-                        
                         $grandTotalJam = (
                             $grandTotalSJ + $grandTotalSabtu + $grandTotalMinggu + $grandTotalHariBesar
                         ) - $grandTotalTidakMasuk - $grandTotalSisaJam;
@@ -340,7 +334,6 @@
                             $grandTotalJam = 0;
                         }
                     @endphp
-
                     <tr class="bg-green-200 font-semibold">
                         <td class="border border-black px-2 py-1 text-right">Grand Total</td>
                         <td colspan="6" class="border border-black px-2 py-1 text-center">
@@ -352,9 +345,6 @@
                             </td>
                         @endif
                     </tr>
-
-
-
                 </tbody>
             </table>
         </div>

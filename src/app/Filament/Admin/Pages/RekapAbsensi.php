@@ -83,6 +83,16 @@ class RekapAbsensi extends Page
 
     public function loadRekap(): void
     {
+        if (
+            !$this->selected_name &&
+            (!$this->status_karyawan || $this->status_karyawan === 'all') &&
+            !$this->selected_lokasi &&
+            !$this->selected_proyek &&
+            !$this->selected_id
+        ) {
+            $this->show_all = true;
+        }
+
         if ($this->show_all) {
             // logika show_all seperti biasa (OK)
             $query = Absensi::whereBetween('tanggal', [$this->start_date, $this->end_date]);

@@ -56,14 +56,17 @@ class KaryawanResource extends Resource
                 ->afterStateUpdated(fn ($state, callable $set) => $state !== 'proyek' ? $set('jenis_proyek', null) : null),
 
             Select::make('jenis_proyek')
-                ->label('Jenis Proyek')
-                ->options([
-                    'Proyek A' => 'Proyek A',
-                    'Proyek B' => 'Proyek B',
-                    'Proyek C' => 'Proyek C',
-                ])
-                ->visible(fn ($get) => $get('lokasi') === 'proyek')
-                ->required(fn ($get) => $get('lokasi') === 'proyek'),
+            ->label('Jenis Proyek')
+            ->options(function () {
+                return \App\Models\Karyawan::query()
+                    ->whereNotNull('jenis_proyek')
+                    ->distinct()
+                    ->pluck('jenis_proyek', 'jenis_proyek')
+                    ->toArray();
+            })
+            ->visible(fn ($get) => $get('lokasi') === 'proyek')
+            ->required(fn ($get) => $get('lokasi') === 'proyek'),
+
 
             TextInput::make('gaji_perbulan')
                 ->label('Gaji Per Bulan')
@@ -186,28 +189,33 @@ class KaryawanResource extends Resource
                 TextColumn::make('faktor_hari_besar')->label('Faktor Hari Besar'),
             ])
             ->filters([
-            SelectFilter::make('status')
-                ->label('Status')
-                ->options([
-                    'harian lepas' => 'Harian Lepas',
-                    'kontrak' => 'Kontrak',
-                    'tetap' => 'Tetap',
-                ])
-                ->searchable(),
-
             SelectFilter::make('lokasi')
                 ->label('Lokasi')
                 ->options(
-                    Karyawan::query()->distinct()->pluck('lokasi', 'lokasi')->toArray()
-                )
-                ->searchable(),
-
+                    Karyawan::query()
+                        ->whereNotNull('lokasi')
+                        ->distinct()
+                        ->pluck('lokasi', 'lokasi')
+                        ->toArray()
+                ),
+            SelectFilter::make('status')
+                ->label('Status')
+                ->options(
+                    Karyawan::query()
+                        ->whereNotNull('status')
+                        ->distinct()
+                        ->pluck('status', 'status')
+                        ->toArray()
+                ),
             SelectFilter::make('jenis_proyek')
                 ->label('Proyek')
                 ->options(
-                    Karyawan::query()->distinct()->pluck('jenis_proyek', 'jenis_proyek')->toArray()
+                    Karyawan::query()
+                        ->whereNotNull('jenis_proyek')
+                        ->distinct()
+                        ->pluck('jenis_proyek', 'jenis_proyek')
+                        ->toArray()
                 )
-                ->searchable(),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

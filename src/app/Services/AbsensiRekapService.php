@@ -61,9 +61,19 @@ class AbsensiRekapService
             $kategori = null;
 
             if (!$hasData) {
-                $jumlahJam = 8; // diasumsikan 8 jam default
-                $rekap['tidak_masuk'] += $jumlahJam;
-                $kategori = 'tidak_masuk';
+                // $jumlahJam = 8;
+                // $rekap['tidak_masuk'] += $jumlahJam;
+                // $kategori = 'tidak_masuk';
+
+                $rekap['per_tanggal'][$nama][$tanggalStr] = [
+                    'sj' => '-',
+                    'sabtu' => '-',
+                    'minggu' => '-',
+                    'hari_besar' => '-',
+                    'tidak_masuk' => $jumlahJam,
+                    'sisa_jam' => 0,
+                ];
+                continue;
             } elseif ($isLibur) {
                 $jumlahJam = $this->hitungJamKerja($record);
                 $rekap['hari_besar'] += $jumlahJam;
@@ -82,36 +92,15 @@ class AbsensiRekapService
                 $kategori = 'sj';
 
                 $sisaJam = 0;
+
             if ($record && $record->masuk_pagi) {
                 $jamMasuk = Carbon::parse($record->masuk_pagi)->format('H:i');
                 if ($jamMasuk > '08:15') {
                     $sisaJam += 1;
                 }
             }
-
                 $isHarianLepas = strtolower($record->karyawan->status ?? '') === 'harian lepas';
 
-                if ($isHarianLepas && $record->masuk_pagi && $record->pulang_kerja) {
-                    try {
-                        $masuk = Carbon::parse($record->masuk_pagi);
-                        $pulang = Carbon::parse($record->pulang_kerja);
-
-                        if ($masuk->format('H:i') <= '08:30' &&
-                            $pulang->format('H:i') >= '15:30' &&
-                            $pulang->format('H:i') < '17:00') {
-
-                            // Tambah 2 jam ke tidak masuk
-                            $rekap['tidak_masuk'] += 2;
-                            $rekap['per_tanggal'][$nama][$tanggalStr]['tidak_masuk'] = '2 jam';
-                        } else {
-                            $rekap['per_tanggal'][$nama][$tanggalStr]['tidak_masuk'] = '-';
-                        }
-                    } catch (\Exception $e) {
-                        $rekap['per_tanggal'][$nama][$tanggalStr]['tidak_masuk'] = '-';
-                    }
-                } else {
-                    $rekap['per_tanggal'][$nama][$tanggalStr]['tidak_masuk'] = '-';
-                }
             }
             $sisaJam = 0;
 
@@ -149,48 +138,33 @@ class AbsensiRekapService
             $rekap['per_user'][$nama]['sisa_jam'] = ($rekap['per_user'][$nama]['sisa_jam'] ?? 0) + $sisaJam;
         }
 
+            $absensisFlat = $absensis->flatten();
+            $hasilHariPerTanggal = $this->hitungJumlahHariPerTanggal($absensisFlat);
+            $jumlahHari = array_sum(array_column($hasilHariPerTanggal, 'jumlah_hari'));
+            $totalHari = count($hasilHariPerTanggal);
+            $jumlahHariTidakMasuk = $totalHari - $jumlahHari;
+
             $rekap['per_user'][$nama]['sj'] = $rekap['sj'] ?? 0;
             $rekap['per_user'][$nama]['sabtu'] = $rekap['sabtu'] ?? 0;
             $rekap['per_user'][$nama]['minggu'] = $rekap['minggu'] ?? 0;
             $rekap['per_user'][$nama]['hari_besar'] = $rekap['hari_besar'] ?? 0;
-            $rekap['per_user'][$nama]['tidak_masuk'] = $rekap['tidak_masuk'] ?? 0;
-
-            // Hitung total sisa jam dari semua tanggal
-            $totalSisaJam = 0;
-            foreach ($rekap['per_tanggal'][$nama] ?? [] as $dataTanggal) {
-                $totalSisaJam += $dataTanggal['sisa_jam'] ?? 0;
-            }
-            $rekap['per_user'][$nama]['sisa_jam'] = $totalSisaJam;
-
-            $absensisFlat = $absensis->flatten();
-            $hasilHariPerTanggal = $this->hitungJumlahHariPerTanggal($absensisFlat);
-            $jumlahHari = array_sum(array_column($hasilHariPerTanggal, 'jumlah_hari'));
-
-            $jumlahHari = $jumlahHari > 0 ? $jumlahHari : 0; // <- ini
             $rekap['per_user'][$nama]['jumlah_hari'] = $jumlahHari;
-
-            $sisaJam = $rekap['per_user'][$nama]['sisa_jam'] ?? 0;
-            $jamIdeal = $jumlahHari * 8;
-            $jamHadir = $jamIdeal - $sisaJam;
-            $tidakMasuk = max(0, $jamIdeal - $jamHadir);
-
-            $rekap['per_user'][$nama]['tidak_masuk'] = $tidakMasuk;
+            $rekap['per_user'][$nama]['tidak_masuk'] = $jumlahHariTidakMasuk * 8;
             $rekap['per_user'][$nama]['total_jam'] = max(0,
                 ($rekap['per_user'][$nama]['sj'] ?? 0) +
                 ($rekap['per_user'][$nama]['sabtu'] ?? 0) +
                 ($rekap['per_user'][$nama]['minggu'] ?? 0) +
                 ($rekap['per_user'][$nama]['hari_besar'] ?? 0) -
-                $tidakMasuk -
-                $sisaJam
+                ($rekap['per_user'][$nama]['tidak_masuk'] ?? 0) -
+                ($rekap['per_user'][$nama]['sisa_jam'] ?? 0)
             );
-
 
             $rekap['display'] = [
                 'sj' => $rekap['per_user'][$nama]['sj'] . ' jam',
                 'sabtu' => $rekap['per_user'][$nama]['sabtu'] . ' jam',
                 'minggu' => $rekap['per_user'][$nama]['minggu'] . ' jam',
                 'hari_besar' => $rekap['per_user'][$nama]['hari_besar'] . ' jam',
-                'tidak_masuk' => $tidakMasuk . ' jam',
+                'tidak_masuk' => $rekap['per_user'][$nama]['tidak_masuk'] . ' jam',
                 'sisa_jam' => $sisaJam . ' jam',
             ];
 
@@ -326,24 +300,6 @@ class AbsensiRekapService
                     $rekap['grand_total']['sj'] += $jumlahJam;
                     $rekap['per_user'][$nama]['sj'] = ($rekap['per_user'][$nama]['sj'] ?? 0) + $jumlahJam;
                     $kategori = 'sj';
-
-                    // Tambahan logika: jika status Harian Lepas dan pulang sebelum 17:00 tapi ≥ 15:30 → tambahkan 2 jam tidak masuk
-                    $isHarianLepas = $record->karyawan?->status === 'harian lepas';
-
-                    if ($isHarianLepas && $record->masuk_pagi && $record->pulang_kerja) {
-                        $masuk = Carbon::parse($record->masuk_pagi);
-                        $pulang = Carbon::parse($record->pulang_kerja);
-
-                        if ($masuk->format('H:i') <= '08:30' && $pulang->format('H:i') >= '15:30' && $pulang->format('H:i') < '17:00') {
-                            // Tambahkan 2 jam ke tidak masuk
-                            $rekap['grand_total']['tidak_masuk'] += 2;
-                            $rekap['per_user'][$nama]['tidak_masuk'] = ($rekap['per_user'][$nama]['tidak_masuk'] ?? 0) + 2;
-                            $rekap['per_tanggal'][$nama][$tanggalStr]['tidak_masuk'] = '2 jam';
-                        } elseif ($rekap['per_tanggal'][$nama][$tanggalStr]['tidak_masuk'] ?? null === null) {
-                            // Pastikan tidak_masuk tetap ditandai "-"
-                            $rekap['per_tanggal'][$nama][$tanggalStr]['tidak_masuk'] = '-';
-                        }
-                    }
                 }
                 $rekap['per_tanggal'][$nama][$tanggalStr] = [
                     'sj' => $kategori === 'sj' ? $jumlahJam . ' jam' : '-',
@@ -466,76 +422,84 @@ class AbsensiRekapService
             $pulang = $absen->pulang_kerja ? \Carbon\Carbon::parse($absen->pulang_kerja) : null;
 
             if ($masuk && $masuk->format('H:i') <= '08:30') {
-            if ($pulang) {
-                $jamPulang = $pulang->format('H:i');
+                if ($pulang) {
+                    $jamPulang = $pulang->format('H:i');
 
-                if ($jamPulang >= '17:00') {
-                    $jumlahHari = 1;
-                    $sisaJam = 0;
-                } elseif ($jamPulang >= '16:00') {
-                    $jumlahHari = 1;
-                    $sisaJam = 1;
-                } elseif ($jamPulang >= '15:00') {
-                    $jumlahHari = 1;
-                    $sisaJam = 2;
-                } elseif ($jamPulang >= '14:00') {
-                    $jumlahHari = 1;
-                    $sisaJam = 3;
-                } elseif ($jamPulang <= '13:00') {
-                    $jumlahHari = 0.5;
-                    $sisaJam = $sisaJam ?? 0;
+                    if ($jamPulang >= '17:00') {
+                        $jumlahHari = 1;
+                        $sisaJam = 0;
+                    } elseif ($jamPulang >= '16:00') {
+                        $jumlahHari = 1;
+                        $sisaJam = 1;
+                    } elseif ($jamPulang >= '15:00') {
+                        $jumlahHari = 1;
+                        $sisaJam = 2;
+                    } elseif ($jamPulang >= '14:00') {
+                        $jumlahHari = 1;
+                        $sisaJam = 3;
+                    } elseif ($jamPulang <= '13:00') {
+                        $jumlahHari = 0.5;
+                        $sisaJam = 0;
+                    } else {
+                        $jumlahHari = 0.5;
+                        $sisaJam = 0;
+                    }
                 } else {
                     $jumlahHari = 0.5;
-                    $sisaJam = $sisaJam ?? 0;
-                }
-            } else {
-                $jumlahHari = 0.5;
-                $sisaJam = $sisaJam ?? 0;
+                    $sisaJam = 0;
             }
         } else {
             $jumlahHari = 0;
             $sisaJam = 8;
         }
 
-        // ✅ Tambahan logika: jika masuk > 08:15, tambahkan 1 jam ke sisa jam
-        if ($masuk && $masuk->format('H:i') > '08:15' && $jumlahHari > 0 && $sisaJam !== null) {
-            $sisaJam += 1;
-        }
-            $hasil[$tanggal] = [
-                'jumlah_hari' => $jumlahHari,
-                'sisa_jam' => $sisaJam,
-            ];
-        }
+        $hasil[$tanggal] = [
+            'jumlah_hari' => $jumlahHari,
+            'sisa_jam' => $sisaJam,
+        ];
 
+        if ($masuk && $jumlahHari > 0) {
+            $jamMasuk = $masuk->format('H:i');
+
+            if ($jamMasuk > '08:15' && $jamMasuk < '12:00') {
+                $menitTerlambat = Carbon::createFromTimeString('08:15')->diffInMinutes($masuk);
+                $jamTerlambat = ceil($menitTerlambat / 60); // dibulatkan ke atas per jam
+                $sisaJam += $jamTerlambat;
+            }
+        }
+    }
         return $hasil;
     }
 
     public function hitungJumlahHariHarianLepas($data_absensi_karyawan): float
-    {
-        $jumlahHari = 0;
+{
+    $jumlahHari = 0;
 
-        foreach ($data_absensi_karyawan as $absen) {
-            $masukPagi = $absen->masuk_pagi ? Carbon::parse($absen->masuk_pagi) : null;
-            $keluarSiang = $absen->keluar_siang;
-            $masukSiang = $absen->masuk_siang;
-            $pulangKerja = $absen->pulang_kerja ? Carbon::parse($absen->pulang_kerja) : null;
+    foreach ($data_absensi_karyawan as $absen) {
+        $masukPagi = $absen->masuk_pagi ? Carbon::parse($absen->masuk_pagi) : null;
+        $pulangKerja = $absen->pulang_kerja ? Carbon::parse($absen->pulang_kerja) : null;
 
-            if ($masukPagi && $masukPagi->format('H:i') <= '08:30') {
-                if ($pulangKerja) {
-                    if ($pulangKerja->format('H:i') >= '17:00') {
-                        $jumlahHari += 1;
-                    } elseif ($pulangKerja->format('H:i') >= '15:00' && $pulangKerja->format('H:i') < '17:00') {
-                        $jumlahHari += 1;
-                        // Jam tidak masuk akan dihitung di fungsi terpisah
-                    }
-                } elseif ($keluarSiang && !$masukSiang && !$pulangKerja) {
-                    $jumlahHari += 0.5;
-                }
+        if ($masukPagi && $pulangKerja) {
+            $jamPulang = $pulangKerja->format('H:i');
+
+            if ($jamPulang >= '17:00') {
+                $jumlahHari += 1;
+            } elseif ($jamPulang >= '15:00') {
+                $jumlahHari += 1;
+            } elseif ($jamPulang <= '13:00') {
+                $jumlahHari += 0.5;
+            } else {
+                $jumlahHari += 0.5;
             }
+        } elseif ($masukPagi && !$pulangKerja) {
+            $jumlahHari += 0.5;
+        } elseif ($absen->keluar_siang && !$absen->masuk_siang && !$absen->pulang_kerja) {
+            $jumlahHari += 0.5;
         }
-
-        return $jumlahHari;
     }
+    return $jumlahHari;
+}
+
     public function simpanRekapKeDatabase(string $nama, string $start_date, string $end_date, array $rekapUser, array $rekapTanggal)
     {
         $karyawan = \App\Models\Karyawan::where('nama', $nama)->first();
@@ -552,16 +516,9 @@ class AbsensiRekapService
                 'sabtu'        => (int) ($rekapUser['sabtu'] ?? 0),
                 'minggu'       => (int) ($rekapUser['minggu'] ?? 0),
                 'hari_besar'   => (int) ($rekapUser['hari_besar'] ?? 0),
-                'tidak_masuk'  => (int) ($rekapUser['tidak_masuk'] ?? 0),
+                'tidak_masuk' => (int) ($rekapUser['tidak_masuk'] ?? 0),
                 'sisa_jam'     => (int) ($rekapUser['sisa_jam'] ?? 0),
-                'total_jam'    => (int) ($rekapUser['total_jam'] ?? (
-                    ($rekapUser['sj'] ?? 0)
-                    + ($rekapUser['sabtu'] ?? 0)
-                    + ($rekapUser['minggu'] ?? 0)
-                    + ($rekapUser['hari_besar'] ?? 0)
-                    - ($rekapUser['tidak_masuk'] ?? 0)
-                    - ($rekapUser['sisa_jam'] ?? 0)
-                )),
+                'total_jam' => (int) ($rekapUser['total_jam'] ?? 0),
                 'jumlah_hari'  => (float) ($rekapUser['jumlah_hari'] ?? 0),
             ]
         );

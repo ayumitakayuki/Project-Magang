@@ -67,16 +67,24 @@ class SlipGaji extends Page implements HasTable
             SelectFilter::make('lokasi')
                 ->label('Lokasi')
                 ->options(
-                    Karyawan::query()->distinct()->pluck('lokasi', 'lokasi')->toArray()
+                    Karyawan::query()
+                        ->whereNotNull('lokasi')
+                        ->distinct()
+                        ->pluck('lokasi', 'lokasi')
+                        ->toArray()
                 )
                 ->searchable(),
 
             SelectFilter::make('jenis_proyek')
                 ->label('Proyek')
                 ->options(
-                    Karyawan::query()->distinct()->pluck('jenis_proyek', 'jenis_proyek')->toArray()
+                    Karyawan::query()
+                        ->whereNotNull('jenis_proyek')
+                        ->distinct()
+                        ->pluck('jenis_proyek', 'jenis_proyek')
+                        ->toArray()
                 )
-                ->searchable(),
+                ->searchable(), 
         ];
     }
 }

@@ -10,10 +10,11 @@ class AbsensiImportController extends Controller
 {
     public function downloadTemplate()
     {
-        $filePath = public_path('templates/template-absensi');
-        
+        $fileName = 'template-absensi.xlsx';
+        $filePath = public_path("templates/{$fileName}");
+
         if (file_exists($filePath)) {
-            return response()->download($filePath);
+            return response()->download($filePath, $fileName);
         } else {
             abort(404, 'Template file not found.');
         }
