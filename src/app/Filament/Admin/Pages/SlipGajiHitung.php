@@ -320,11 +320,15 @@ class SlipGajiHitung extends Page
             GajiDetail::create([
                 'gaji_id' => $gaji->id,
                 'kode' => 'a',
-                'keterangan' => 'Gaji Setengah bln',
-                'masuk' => null,
+                'keterangan' => $this->gaji_data['status'] === 'harian lepas' ? 'Gaji Harian' : 'Gaji Setengah bln',
+                'masuk' => $this->gaji_data['status'] === 'harian lepas' ? ($this->gaji_data['gaji_harian_masuk'] ?? 0) : null,
                 'faktor' => null,
-                'nominal' => $this->gaji_data['gaji_setengah_bulan_nominal'],
-                'total' => $this->gaji_data['gaji_setengah_bulan_nominal'],
+                'nominal' => $this->gaji_data['status'] === 'harian lepas'
+                    ? ($this->gaji_data['gaji_harian_nominal'] ?? 0)
+                    : ($this->gaji_data['gaji_setengah_bulan_nominal'] ?? 0),
+                'total' => $this->gaji_data['status'] === 'harian lepas'
+                    ? (($this->gaji_data['gaji_harian_masuk'] ?? 0) * ($this->gaji_data['gaji_harian_nominal'] ?? 0))
+                    : ($this->gaji_data['gaji_setengah_bulan_nominal'] ?? 0),
             ]);
 
             $lemburRows = [

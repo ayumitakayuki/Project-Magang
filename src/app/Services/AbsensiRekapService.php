@@ -51,28 +51,41 @@ class AbsensiRekapService
 
             $record = $absensis->get($tanggalStr)?->first(); // ambil satu record jika ada
 
-            $hasData = $record && (
-                $record->masuk_pagi || $record->keluar_siang ||
-                $record->masuk_siang || $record->pulang_kerja ||
-                $record->masuk_lembur || $record->pulang_lembur
-            );
+            $hasData = false;
+            if ($record) {
+                $fields = [
+                    $record->masuk_pagi,
+                    $record->keluar_siang,
+                    $record->masuk_siang,
+                    $record->pulang_kerja,
+                    $record->masuk_lembur,
+                    $record->pulang_lembur
+                ];
+                foreach ($fields as $f) {
+                    if (!empty($f)) {
+                        $hasData = true;
+                        break;
+                    }
+                }
+            }
 
             $jumlahJam = 0;
             $kategori = null;
 
-            if (!$hasData) {
-                // $jumlahJam = 8;
-                // $rekap['tidak_masuk'] += $jumlahJam;
-                // $kategori = 'tidak_masuk';
-
+            if (
+                (!$record || !$hasData)
+                && !$isLibur && $dayName != 'Saturday' && $dayName != 'Sunday'
+            ) {
                 $rekap['per_tanggal'][$nama][$tanggalStr] = [
                     'sj' => '-',
                     'sabtu' => '-',
                     'minggu' => '-',
                     'hari_besar' => '-',
-                    'tidak_masuk' => $jumlahJam,
+                    'tidak_masuk' => '8 jam',
                     'sisa_jam' => 0,
                 ];
+                $rekap['grand_total']['tidak_masuk'] += 8;
+                $rekap['per_user'][$nama]['tidak_masuk'] = ($rekap['per_user'][$nama]['tidak_masuk'] ?? 0) + 8;
                 continue;
             } elseif ($isLibur) {
                 $jumlahJam = $this->hitungJamKerja($record);
@@ -134,8 +147,12 @@ class AbsensiRekapService
                 'tidak_masuk' => $kategori === 'tidak_masuk' ? 8 : '-', 
                 'sisa_jam' => $sisaJam,
             ];
+            $hasilHariPerTanggal = $this->hitungJumlahHariPerTanggal($absensis->flatten());
+            $totalSisaJam = array_sum(array_column($hasilHariPerTanggal, 'sisa_jam'));
+            $totalJumlahHari = array_sum(array_column($hasilHariPerTanggal, 'jumlah_hari'));
 
-            $rekap['per_user'][$nama]['sisa_jam'] = ($rekap['per_user'][$nama]['sisa_jam'] ?? 0) + $sisaJam;
+            $rekap['per_user'][$nama]['sisa_jam'] = $totalSisaJam;
+            $rekap['per_user'][$nama]['jumlah_hari'] = $totalJumlahHari;
         }
 
             $absensisFlat = $absensis->flatten();
@@ -148,8 +165,28 @@ class AbsensiRekapService
             $rekap['per_user'][$nama]['sabtu'] = $rekap['sabtu'] ?? 0;
             $rekap['per_user'][$nama]['minggu'] = $rekap['minggu'] ?? 0;
             $rekap['per_user'][$nama]['hari_besar'] = $rekap['hari_besar'] ?? 0;
+            $rekap['per_user'][$nama]['total_jam'] = $rekap['per_user'][$nama]['total_jam'] ?? 0;
             $rekap['per_user'][$nama]['jumlah_hari'] = $jumlahHari;
-            $rekap['per_user'][$nama]['tidak_masuk'] = $jumlahHariTidakMasuk * 8;
+            $jumlahHariKerjaTanpaAbsensi = 0;
+            foreach ($period as $date) {
+                $tanggalStr = $date->format('Y-m-d');
+                $dayName = $date->format('l');
+                $isLibur = array_key_exists($tanggalStr, $libur);
+
+                // Hari kerja (Senin-Jumat, bukan libur)
+                if ($dayName != 'Saturday' && $dayName != 'Sunday' && !$isLibur) {
+                    $record = $absensis->get($tanggalStr)?->first();
+                    $hasData = $record && (
+                        $record->masuk_pagi || $record->keluar_siang ||
+                        $record->masuk_siang || $record->pulang_kerja ||
+                        $record->masuk_lembur || $record->pulang_lembur
+                    );
+                    if (!$hasData) {
+                        $jumlahHariKerjaTanpaAbsensi++;
+                    }
+                }
+            }
+            $rekap['per_user'][$nama]['tidak_masuk'] = $jumlahHariKerjaTanpaAbsensi * 8;
             $rekap['per_user'][$nama]['total_jam'] = max(0,
                 ($rekap['per_user'][$nama]['sj'] ?? 0) +
                 ($rekap['per_user'][$nama]['sabtu'] ?? 0) +
@@ -170,15 +207,14 @@ class AbsensiRekapService
 
             $lastAbsensiDate = collect($absensis)->keys()->sort()->last() ?? $end_date;
 
-            if ($start_date !== $lastAbsensiDate) {
-                $this->simpanRekapKeDatabase(
-                    $nama,
-                    $start_date,
-                    $lastAbsensiDate,
-                    $rekap['per_user'][$nama] ?? [],
-                    $rekap['per_tanggal'][$nama] ?? []
-                );
-            }
+            $this->simpanRekapKeDatabase(
+                $nama,
+                $start_date,
+                $lastAbsensiDate,
+                $rekap['per_user'][$nama] ?? [],
+                $rekap['per_tanggal'][$nama] ?? []
+            );
+
 
             return $rekap;
     }
@@ -247,39 +283,52 @@ class AbsensiRekapService
             $dayName = $date->format('l');
             $isLibur = array_key_exists($tanggalStr, $libur);
 
-            // Loop semua karyawan yang pernah absen
             foreach ($data as $nama => $absensiHarian) {
                 $record = $absensiHarian->get($tanggalStr)?->first();
 
-                $hasData = $record && (
-                    $record->masuk_pagi ||
-                    $record->keluar_siang ||
-                    $record->masuk_siang ||
-                    $record->pulang_kerja ||
-                    $record->masuk_lembur ||
-                    $record->pulang_lembur
-                );
+                $hasData = false;
+                if ($record) {
+                    $fields = [
+                        $record->masuk_pagi,
+                        $record->keluar_siang,
+                        $record->masuk_siang,
+                        $record->pulang_kerja,
+                        $record->masuk_lembur,
+                        $record->pulang_lembur
+                    ];
+                    foreach ($fields as $f) {
+                        if (!empty($f)) {
+                            $hasData = true;
+                            break;
+                        }
+                    }
+                }
 
-                $kategori = null;
-                $jumlahJam = 0;
-
-                if (!isset($rekap['per_tanggal'][$nama][$tanggalStr])) {
+                if (
+                    (!$record || !$hasData)
+                    && !$isLibur && $dayName != 'Saturday' && $dayName != 'Sunday'
+                ) {
+                    $rekap['per_tanggal'][$nama][$tanggalStr] = [
+                        'sj' => '-',
+                        'sabtu' => '-',
+                        'minggu' => '-',
+                        'hari_besar' => '-',
+                        'tidak_masuk' => '8 jam',
+                        'sisa_jam' => 0,
+                    ];
+                    $rekap['grand_total']['tidak_masuk'] += 8;
+                    $rekap['per_user'][$nama]['tidak_masuk'] = ($rekap['per_user'][$nama]['tidak_masuk'] ?? 0) + 8;
+                    continue;
+                } elseif ((!$record || !$hasData) && ($isLibur || $dayName == 'Saturday' || $dayName == 'Sunday')) {
                     $rekap['per_tanggal'][$nama][$tanggalStr] = [
                         'sj' => '-',
                         'sabtu' => '-',
                         'minggu' => '-',
                         'hari_besar' => '-',
                         'tidak_masuk' => '-',
-                        'sisa_jam' => 0  // Initialize this
+                        'sisa_jam' => 0,
                     ];
-                }
-
-                if (!$record || !$hasData) {
-                    // Tidak ada record atau record kosong
-                    $rekap['grand_total']['tidak_masuk'] += 8;
-                    $rekap['per_user'][$nama]['tidak_masuk'] = ($rekap['per_user'][$nama]['tidak_masuk'] ?? 0) + 8;
-                    $kategori = 'tidak_masuk';
-                    $jumlahJam = 8;
+                    continue;
                 } elseif ($isLibur) {
                     $jumlahJam = $this->hitungJamKerja($record);
                     $rekap['grand_total']['hari_besar'] += $jumlahJam;
@@ -301,15 +350,8 @@ class AbsensiRekapService
                     $rekap['per_user'][$nama]['sj'] = ($rekap['per_user'][$nama]['sj'] ?? 0) + $jumlahJam;
                     $kategori = 'sj';
                 }
-                $rekap['per_tanggal'][$nama][$tanggalStr] = [
-                    'sj' => $kategori === 'sj' ? $jumlahJam . ' jam' : '-',
-                    'sabtu' => $kategori === 'sabtu' ? $jumlahJam . ' jam' : '-',
-                    'minggu' => $kategori === 'minggu' ? $jumlahJam . ' jam' : '-',
-                    'hari_besar' => $kategori === 'hari_besar' ? $jumlahJam . ' jam' : '-',
-                    'tidak_masuk' => $kategori === 'tidak_masuk' ? '8 jam' : '-',
-                ];
-                // Hitung sisa jam: semua karyawan
-                $sisaJam = 0;
+
+                $sisaJam = 0; // Initialize before usage
 
                 if ($record && $record->masuk_pagi) {
                     $jamMasuk = Carbon::parse($record->masuk_pagi)->format('H:i');
@@ -318,11 +360,9 @@ class AbsensiRekapService
                     }
                 }
 
-                // Logika khusus harian lepas berdasarkan jam pulang
                 $isHarianLepas = strtolower($record->karyawan->status ?? '') === 'harian lepas';
                 if ($isHarianLepas && $record->pulang_kerja) {
                     $jamPulang = Carbon::parse($record->pulang_kerja)->format('H:i');
-
                     if ($jamPulang >= '14:00' && $jamPulang < '15:00') {
                         $sisaJam += 3;
                     } elseif ($jamPulang >= '15:00' && $jamPulang < '16:00') {
@@ -332,7 +372,17 @@ class AbsensiRekapService
                     }
                 }
 
-                $rekap['per_tanggal'][$nama][$tanggalStr]['sisa_jam'] = $sisaJam;
+                // Simpan ke array rekap
+                $rekap['per_tanggal'][$nama][$tanggalStr] = [
+                    'sj' => $kategori === 'sj' ? $jumlahJam . ' jam' : '-',
+                    'sabtu' => $kategori === 'sabtu' ? $jumlahJam . ' jam' : '-',
+                    'minggu' => $kategori === 'minggu' ? $jumlahJam . ' jam' : '-',
+                    'hari_besar' => $kategori === 'hari_besar' ? $jumlahJam . ' jam' : '-',
+                    'tidak_masuk' => $kategori === 'tidak_masuk' ? '8 jam' : '-',
+                    'sisa_jam' => $sisaJam,
+                ];
+
+                // Akumulasi ke user dan grand total
                 $rekap['per_user'][$nama]['sisa_jam'] = ($rekap['per_user'][$nama]['sisa_jam'] ?? 0) + $sisaJam;
                 $rekap['grand_total']['sisa_jam'] = ($rekap['grand_total']['sisa_jam'] ?? 0) + $sisaJam;
             }
@@ -349,17 +399,30 @@ class AbsensiRekapService
         foreach ($rekap['per_user'] as $nama => $rekapUser) {
             $absensiTanggal = $data->get($nama);
 
-            // Ambil tanggal terakhir absensi (jika ada)
+            $absensisFlat = $absensiTanggal ? $absensiTanggal->flatten() : collect();
+            $hasilHariPerTanggal = $this->hitungJumlahHariPerTanggal($absensisFlat);
+            $jumlahHari = array_sum(array_column($hasilHariPerTanggal, 'jumlah_hari'));
+
+            $totalJam = max(0,
+                ($rekapUser['sj'] ?? 0) +
+                ($rekapUser['sabtu'] ?? 0) +
+                ($rekapUser['minggu'] ?? 0) +
+                ($rekapUser['hari_besar'] ?? 0) -
+                ($rekapUser['tidak_masuk'] ?? 0) -
+                ($rekapUser['sisa_jam'] ?? 0)
+            );
+
+            $rekap['per_user'][$nama]['total_jam'] = $totalJam;
+            $rekap['per_user'][$nama]['jumlah_hari'] = $jumlahHari;
+
             $tanggalTerakhir = collect($absensiTanggal ?? [])->keys()->sortDesc()->first();
             $periodeAkhir = $tanggalTerakhir ?? $end;
         
-
-            // Simpan hanya data rekap user ini
             $this->simpanRekapKeDatabase(
                 $nama,
                 $start,
                 $periodeAkhir,
-                $rekapUser,
+                $rekap['per_user'][$nama],
                 $rekap['per_tanggal'][$nama] ?? []
             );
         }
@@ -472,33 +535,33 @@ class AbsensiRekapService
     }
 
     public function hitungJumlahHariHarianLepas($data_absensi_karyawan): float
-{
-    $jumlahHari = 0;
+    {
+        $jumlahHari = 0;
 
-    foreach ($data_absensi_karyawan as $absen) {
-        $masukPagi = $absen->masuk_pagi ? Carbon::parse($absen->masuk_pagi) : null;
-        $pulangKerja = $absen->pulang_kerja ? Carbon::parse($absen->pulang_kerja) : null;
+        foreach ($data_absensi_karyawan as $absen) {
+            $masukPagi = $absen->masuk_pagi ? Carbon::parse($absen->masuk_pagi) : null;
+            $pulangKerja = $absen->pulang_kerja ? Carbon::parse($absen->pulang_kerja) : null;
 
-        if ($masukPagi && $pulangKerja) {
-            $jamPulang = $pulangKerja->format('H:i');
+            if ($masukPagi && $pulangKerja) {
+                $jamPulang = $pulangKerja->format('H:i');
 
-            if ($jamPulang >= '17:00') {
-                $jumlahHari += 1;
-            } elseif ($jamPulang >= '15:00') {
-                $jumlahHari += 1;
-            } elseif ($jamPulang <= '13:00') {
+                if ($jamPulang >= '17:00') {
+                    $jumlahHari += 1;
+                } elseif ($jamPulang >= '15:00') {
+                    $jumlahHari += 1;
+                } elseif ($jamPulang <= '13:00') {
+                    $jumlahHari += 0.5;
+                } else {
+                    $jumlahHari += 0.5;
+                }
+            } elseif ($masukPagi && !$pulangKerja) {
                 $jumlahHari += 0.5;
-            } else {
+            } elseif ($absen->keluar_siang && !$absen->masuk_siang && !$absen->pulang_kerja) {
                 $jumlahHari += 0.5;
             }
-        } elseif ($masukPagi && !$pulangKerja) {
-            $jumlahHari += 0.5;
-        } elseif ($absen->keluar_siang && !$absen->masuk_siang && !$absen->pulang_kerja) {
-            $jumlahHari += 0.5;
         }
+        return $jumlahHari;
     }
-    return $jumlahHari;
-}
 
     public function simpanRekapKeDatabase(string $nama, string $start_date, string $end_date, array $rekapUser, array $rekapTanggal)
     {

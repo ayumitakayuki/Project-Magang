@@ -133,19 +133,36 @@
                         @php $rowIndex = 0; $labels = range('a', 'z'); @endphp
                         @php
                             $status = strtolower($gaji_data['status'] ?? '');
-                            $labelGajiPokok = $status === 'harian lepas' ? 'Gaji Harian' : 'Gaji Setengah bln';
+                            $isHarianLepas = $status === 'harian lepas';
+                            $labelGajiPokok = $isHarianLepas ? 'Gaji Harian' : 'Gaji Setengah bln';
+                            $gajiHarianMasuk = $isHarianLepas
+                                ? (is_numeric($gaji_data['gaji_harian_masuk'] ?? null) ? (int)$gaji_data['gaji_harian_masuk'] : 0)
+                                : 0;
+                            // Ambil nominal lembur dari database karyawan (field: gaji_harian)
+                            $gajiHarianNominal = $isHarianLepas
+                                ? ($gaji_data['gaji_harian_nominal'] ?? 0)
+                                : 0;
+                            $gajiHarianTotal = $isHarianLepas
+                                ? ($gajiHarianMasuk * $gajiHarianNominal)
+                                : ($gaji_data['gaji_setengah_bulan_nominal'] ?? 0);
                         @endphp
 
                         <tr>
                             <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
                             <td class="px-6 py-4">{{ $labelGajiPokok }}</td>
-                            <td class="px-6 py-4 text-center">-</td>
+                            <td class="px-6 py-4 text-center">
+                                @if($isHarianLepas)
+                                    {{ $gajiHarianMasuk }}
+                                @else
+                                    -
+                                @endif
+                            </td>
                             <td class="px-6 py-4 text-center">-</td>
                             <td class="px-6 py-4 text-right">
-                                {{ number_format($gaji_data['gaji_setengah_bulan_nominal'] ?? 0, 0, ',', '.') }}
+                                {{ number_format($isHarianLepas ? $gajiHarianNominal : ($gaji_data['gaji_setengah_bulan_nominal'] ?? 0), 0, ',', '.') }}
                             </td>
                             <td class="px-6 py-4 text-right">
-                                {{ number_format($gaji_data['gaji_setengah_bulan_nominal'] ?? 0, 0, ',', '.') }}
+                                {{ number_format($gajiHarianTotal, 0, ',', '.') }}
                             </td>
                         </tr>
                         <tr>
@@ -266,8 +283,6 @@
                                             d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
                                     </svg>
                                 </div>
-
-                                
                                 <input type="number" 
                                     x-show="editing.faktor" 
                                     x-model="values.faktor" 
@@ -313,7 +328,16 @@
                         </tr>
                         <tr class="font-bold">
                             <td colspan="5" class="px-6 py-4 text-right">Grand Total</td>
-                            <td class="px-6 py-4 text-right">Rp {{ number_format($gaji_data['total_gaji'], 0, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right">
+                                Rp {{
+                                    number_format(
+                                        (empty($gaji_data['kasbon']) || $gaji_data['kasbon'] == 0)
+                                            ? $sub_total
+                                            : ($sub_total - $gaji_data['kasbon']),
+                                        0, ',', '.'
+                                    )
+                                }}
+                            </td>
                         </tr>
                         <div class="mt-6 flex justify-end gap-2">
                             <form wire:submit.prevent="simpanSlipGaji">

@@ -84,6 +84,7 @@ class GajiService
             'upah_per_hari' => $upah_per_hari,
             // 'total_upah' => $total_upah,
             'gaji_setengah_bulan_nominal' => $gaji_setengah_bulan,
+            'gaji_harian_nominal' => $karyawan->gaji_harian ?? 0,
 
             // Lembur Senin s/d Jumat
             'lembur_senin_jumat_masuk'   => $sj,
