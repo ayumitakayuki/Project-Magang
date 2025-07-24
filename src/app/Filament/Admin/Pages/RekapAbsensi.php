@@ -33,8 +33,6 @@ class RekapAbsensi extends Page
     public float $totalSisaJam = 0;
     public float $jumlahHari = 0;
     public array $jumlahHariPerTanggal = [];
-
-
     public function mount(Request $request): void
     {
         $this->all_karyawan = Karyawan::get(['id_karyawan', 'nama']);

@@ -339,24 +339,24 @@
                                 }}
                             </td>
                         </tr>
-                        <div class="mt-6 flex justify-end gap-2">
-                            <form wire:submit.prevent="simpanSlipGaji">
-                                <button type="submit" 
-                                    class="inline-flex items-center px-6 py-3 border text-sm font-medium text-gray-700 border-gray-300 rounded-md hover:bg-gray-100 transition">
-                                    Simpan ke Database
-                                </button>
-                            </form>
-
-                            @if ($editingGajiId)
-                                <a href="{{ route('filament.admin.pages.histori-slip-gaji') }}"
-                                class="inline-flex items-center px-6 py-3 border text-sm font-medium text-gray-700 border-gray-300 rounded-md hover:bg-gray-100 transition">
-                                    Batal Edit
-                                </a>
-                            @endif
-                        </div>
-                    @stack('scripts')
                     </tbody>
                 </table>
+                <div class="mt-6 flex justify-end gap-2">
+                    <form wire:submit.prevent="simpanSlipGaji">
+                        <button type="submit"
+                            class="inline-flex items-center px-6 py-3 border text-sm font-medium text-gray-700 border-gray-300 rounded-md hover:bg-gray-100 transition">
+                            Simpan ke Database
+                        </button>
+                    </form>
+
+                    @if ($editingGajiId)
+                        <a href="{{ route('filament.admin.pages.histori-slip-gaji') }}"
+                            class="inline-flex items-center px-6 py-3 border text-sm font-medium text-gray-700 border-gray-300 rounded-md hover:bg-gray-100 transition">
+                            Batal Edit
+                        </a>
+                    @endif
+                </div>
+                @stack('scripts')
 
                 <!-- Add Item Form -->
                 <div x-data="{ 

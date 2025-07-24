@@ -1,6 +1,12 @@
 <x-filament::page>
     <x-filament::card class="bg-blue-100 rounded-xl p-6">
         {{-- FORM FILTER TERPADU --}}
+        @if (session('edit_alert'))
+            <div class="bg-yellow-100 border border-yellow-300 text-yellow-800 px-4 py-3 rounded-lg mb-4">
+                <strong class="font-semibold">Mode Edit:</strong>
+                Anda sedang mengedit rekap absensi yang sudah tersimpan.
+            </div>
+        @endif
         <form method="GET" class="mb-6 flex flex-wrap items-center gap-2">
 
             <input type="hidden" name="show_all" value="1">
@@ -69,19 +75,11 @@
                 class="rounded-lg px-3 py-1 bg-blue-200 text-sm"
                 placeholder="End Date"
             />
-
+            
             {{-- Tombol Filter --}}
-            <button type="submit"
-                class="px-4 py-1 bg-green-300 hover:bg-green-400 text-sm rounded-lg transition">
-                Filter
-            </button>
-
-            {{-- Tombol Reset Filter --}}
-            <a href="{{ route('filament.admin.pages.rekap-absensi') }}"
-                class="px-4 py-1 bg-gray-300 hover:bg-gray-400 text-sm rounded-lg transition">
-                Reset
-            </a>
-
+            <form wire:submit.prevent="refreshData">
+                <button type="submit">Filter</button>
+            </form>
         </form>
     </form>
 
@@ -318,7 +316,7 @@
                         @endif
                     </tr>
 
-                    @php
+                    {{-- @php
                         $grandTotalSJ = $rekap['sj'] ?? 0;
                         $grandTotalSabtu = $rekap['sabtu'] ?? 0;
                         $grandTotalMinggu = $rekap['minggu'] ?? 0;
@@ -333,8 +331,8 @@
                         if ($grandTotalJam < 0) {
                             $grandTotalJam = 0;
                         }
-                    @endphp
-                    <tr class="bg-green-200 font-semibold">
+                    @endphp --}}
+                    {{-- <tr class="bg-green-200 font-semibold">
                         <td class="border border-black px-2 py-1 text-right">Grand Total</td>
                         <td colspan="6" class="border border-black px-2 py-1 text-center">
                             {{ $grandTotalJam }} jam
@@ -344,9 +342,19 @@
                                 {{ $jumlahHari > 0 ? $jumlahHari . ' hari' : '-' }}
                             </td>
                         @endif
-                    </tr>
+                    </tr> --}}
                 </tbody>
             </table>
+            {{-- @if ($edit_mode)
+                <div class="mt-4 flex items-center gap-4">
+                    <x-filament::button wire:click="simpanEditRekap">
+                        Simpan ke Database
+                    </x-filament::button>
+                    <a href="{{ route('filament.admin.pages.histori-rekap-absensi') }}" class="text-gray-500 underline">
+                        Batal Edit
+                    </a>
+                </div>
+            @endif --}}
         </div>
     </div>
 </div>

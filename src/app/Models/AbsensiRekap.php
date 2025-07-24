@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 class AbsensiRekap extends Model
 {
     use HasFactory;
-
     protected $fillable = [
         'karyawan_id',
         'nama',
@@ -23,4 +22,8 @@ class AbsensiRekap extends Model
         'total_jam',
         'jumlah_hari',
     ];
+    public function karyawan()
+    {
+        return $this->belongsTo(\App\Models\Karyawan::class, 'karyawan_id', 'id_karyawan');
+    }
 }

@@ -121,7 +121,7 @@ class SlipGajiHitung extends Page
                 }
             }
             
-            $this->gaji_data['total_gaji'] += $total_additional;
+            // $this->gaji_data['total_gaji'] += $total_additional;
             $this->calculateGrandTotal();
         }
     }
@@ -179,7 +179,6 @@ class SlipGajiHitung extends Page
             'total' => $this->newItem['total'], 
     ];
 
-        // Reset input
         $this->newItem = [
             'type' => '',
             'masuk' => '',
@@ -188,7 +187,6 @@ class SlipGajiHitung extends Page
             'total' => '',
         ];
 
-        $this->hitungSlipGaji();
         $this->calculateGrandTotal();
     }
 
@@ -234,18 +232,25 @@ class SlipGajiHitung extends Page
     }
     private function calculateSubTotal()
     {
-        $subTotal = $this->gaji_data['gaji_setengah_bulan_nominal'] ?? 0;
+        $status = strtolower($this->gaji_data['status'] ?? '');
+        $subTotal = 0;
+
+        if ($status === 'harian lepas') {
+            $subTotal +=
+                ($this->gaji_data['gaji_harian_masuk'] ?? 0) *
+                ($this->gaji_data['gaji_harian_nominal'] ?? 0);
+        } else {
+            $subTotal += $this->gaji_data['gaji_setengah_bulan_nominal'] ?? 0;
+        }
 
         $subTotal += $this->gaji_data['lembur_senin_jumat_total'] ?? 0;
         $subTotal += $this->gaji_data['lembur_sabtu_total'] ?? 0;
         $subTotal += $this->gaji_data['lembur_minggu_total'] ?? 0;
         $subTotal += $this->gaji_data['lembur_hari_besar_total'] ?? 0;
 
-        // Potongan dikurangi
         $subTotal -= $this->gaji_data['potongan_tidak_masuk_total'] ?? 0;
         $subTotal -= $this->gaji_data['potongan_tidak_disiplin_total'] ?? 0;
 
-        // Item tambahan (manual dari user)
         foreach ($this->additional_items as $item) {
             if (str_contains(strtolower($item['keterangan']), 'potongan')) {
                 $subTotal -= $item['total'];
@@ -253,7 +258,6 @@ class SlipGajiHitung extends Page
                 $subTotal += $item['total'];
             }
         }
-
         return $subTotal;
     }
 
