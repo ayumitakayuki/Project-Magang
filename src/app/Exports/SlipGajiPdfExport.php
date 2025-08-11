@@ -15,7 +15,7 @@ class SlipGajiPdfExport
 
         $pdf = Pdf::loadView('exports.slip-gaji-pdf', [
             'gaji' => $gaji
-        ])->setPaper('a4', 'portrait');
+        ])->setPaper('a5', 'portrait');
 
         return $pdf->download('Slip-Gaji-' . $gaji->nama . '.pdf');
     }

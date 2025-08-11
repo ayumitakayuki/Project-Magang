@@ -66,7 +66,7 @@
                             <td class="p-3 border-r border-gray-200">{{ $item->keterangan }}</td>
                             <td class="p-3 border-r border-gray-200 text-center">
                                 @if(is_numeric($item->masuk) && $item->masuk > 0)
-                                    {{ number_format($item->masuk, 0, ',', '.') }}
+                                    {{ number_format($item->masuk, (fmod($item->masuk, 1) == 0 ? 0 : 1), ',', '.') }}
                                 @else
                                     -
                                 @endif

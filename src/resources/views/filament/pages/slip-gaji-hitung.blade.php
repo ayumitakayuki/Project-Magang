@@ -138,7 +138,6 @@
                             $gajiHarianMasuk = $isHarianLepas
                                 ? (is_numeric($gaji_data['gaji_harian_masuk'] ?? null) ? (int)$gaji_data['gaji_harian_masuk'] : 0)
                                 : 0;
-                            // Ambil nominal lembur dari database karyawan (field: gaji_harian)
                             $gajiHarianNominal = $isHarianLepas
                                 ? ($gaji_data['gaji_harian_nominal'] ?? 0)
                                 : 0;
@@ -168,7 +167,11 @@
                         <tr>
                             <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
                             <td>Lembur senin s/d jumat</td>
-                            <td>{{ $gaji_data['lembur_senin_jumat_masuk'] }}</td>
+                            <td class="px-6 py-4 text-center">
+                                {{ fmod($gaji_data['lembur_senin_jumat_masuk'], 1) === 0.0 
+                                    ? (int) $gaji_data['lembur_senin_jumat_masuk'] 
+                                    : number_format($gaji_data['lembur_senin_jumat_masuk'], 1, '.', '.') }}
+                            </td>
                             <td class="text-center">{{ $gaji_data['lembur_senin_jumat_faktor'] }}</td>
                             <td class="text-right">{{ number_format($gaji_data['lembur_senin_jumat_nominal'], 0, ',', '.') }}</td>
                             <td class="text-right">{{ number_format($gaji_data['lembur_senin_jumat_total'], 0, ',', '.') }}</td>
@@ -176,7 +179,11 @@
                         <tr>
                             <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
                             <td class="px-6 py-4">Lembur Sabtu</td>
-                            <td>{{ $gaji_data['lembur_sabtu_masuk'] }}</td>
+                            <td>
+                                {{ fmod($gaji_data['lembur_sabtu_masuk'], 1) === 0.0 
+                                    ? (int) $gaji_data['lembur_sabtu_masuk'] 
+                                    : number_format($gaji_data['lembur_sabtu_masuk'], 1, '.', '.') }}
+                            </td>
                             <td class="text-center">{{ $gaji_data['lembur_sabtu_faktor'] }}</td>
                             <td class="text-right">{{ number_format($gaji_data['lembur_sabtu_nominal'], 0, ',', '.') }}</td>
                             <td class="text-right">{{ number_format($gaji_data['lembur_sabtu_total'], 0, ',', '.') }}</td>
@@ -184,7 +191,11 @@
                         <tr>
                             <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
                             <td class="px-6 py-4">Lembur Minggu</td>
-                            <td class="px-6 py-4 text-center">{{ $gaji_data['lembur_minggu_masuk'] }}</td>
+                            <td class="px-6 py-4 text-center">
+                                {{ fmod($gaji_data['lembur_minggu_masuk'], 1) === 0.0 
+                                    ? (int) $gaji_data['lembur_minggu_masuk'] 
+                                    : number_format($gaji_data['lembur_minggu_masuk'], 1, '.', '.') }}
+                            </td>
                             <td class="px-6 py-4 text-center">{{ $gaji_data['lembur_minggu_faktor'] }}</td>
                             <td class="px-6 py-4 text-right">{{ number_format($gaji_data['lembur_minggu_nominal'], 0, ',', '.') }}</td>
                             <td class="px-6 py-4 text-right">{{ number_format($gaji_data['lembur_minggu_total'], 0, ',', '.') }}</td>
@@ -192,7 +203,11 @@
                         <tr>
                             <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
                             <td class="px-6 py-4">Lembur Hari Besar</td>
-                            <td class="px-6 py-4 text-center">{{ $gaji_data['lembur_hari_besar_masuk'] }}</td>
+                            <td class="px-6 py-4 text-center">
+                                {{ fmod($gaji_data['lembur_hari_besar_masuk'], 1) === 0.0 
+                                    ? (int) $gaji_data['lembur_hari_besar_masuk'] 
+                                    : number_format($gaji_data['lembur_hari_besar_masuk'], 1, '.', '.') }}
+                            </td>
                             <td class="px-6 py-4 text-center">{{ $gaji_data['lembur_hari_besar_faktor'] }}</td>
                             <td class="px-6 py-4 text-right">{{ number_format($gaji_data['lembur_hari_besar_nominal'], 0, ',', '.') }}</td>
                             <td class="px-6 py-4 text-right">{{ number_format($gaji_data['lembur_hari_besar_total'], 0, ',', '.') }}</td>
@@ -210,16 +225,25 @@
                                     </svg>
                                 </button>
                             </td>
-                            <td class="px-6 py-4 text-center">{{ $item['masuk'] }}</td>
+                            <td class="px-6 py-4 text-center">
+                                {{ fmod($item['masuk'], 1) === 0.0 ? (int) $item['masuk'] : number_format($item['masuk'], 1, ',', '.') }}
+                            </td>
                             <td class="px-6 py-4 text-center">{{ $item['faktor'] }}</td>
                             <td class="px-6 py-4 text-right">{{ number_format($item['nominal_lembur'], 0, ',', '.') }}</td>
-                            <td class="px-6 py-4 text-right">{{ number_format($item['total'], 0, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-right">
+                                {{ fmod($item['total'], 1) === 0.0 ? (int) $item['total'] : number_format($item['total'], 1, ',', '.') }}
+                            </td>
+
                         </tr>
                         @endforeach
                         <tr>
                             <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
                             <td class="px-6 py-4">Potongan Gaji Tdk Masuk (Perjam)</td>
-                            <td class="px-6 py-4 text-center">{{ $gaji_data['potongan_tidak_masuk_masuk'] }}</td>
+                            <td class="px-6 py-4 text-center">
+                                {{ fmod($gaji_data['potongan_tidak_masuk_masuk'], 1) === 0.0 
+                                    ? (int) $gaji_data['potongan_tidak_masuk_masuk'] 
+                                    : number_format($gaji_data['potongan_tidak_masuk_masuk'], 1, '.', '.') }}
+                            </td>
                             <td class="px-6 py-4 text-center">-</td>
                             <td class="px-6 py-4 text-right">{{ number_format($gaji_data['potongan_tidak_masuk_nominal'], 0, ',', '.') }}</td>
                             <td class="px-6 py-4 text-right">{{ number_format($gaji_data['potongan_tidak_masuk_total'], 0, ',', '.') }}</td>
@@ -227,7 +251,11 @@
                         <tr>
                             <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
                             <td class="px-6 py-4">Potongan Gaji Tdk Disiplin</td>
-                            <td class="px-6 py-4 text-center">{{ $gaji_data['potongan_tidak_disiplin_masuk'] }}</td>
+                            <td class="px-6 py-4 text-center">
+                                {{ fmod($gaji_data['potongan_tidak_disiplin_masuk'], 1) === 0.0 
+                                    ? (int) $gaji_data['potongan_tidak_disiplin_masuk'] 
+                                    : number_format($gaji_data['potongan_tidak_disiplin_masuk'], 1, '.', '.') }}
+                            </td>
                             <td class="px-6 py-4 text-center">-</td>
                             <td class="px-6 py-4 text-right">{{ number_format($gaji_data['potongan_tidak_disiplin_nominal'], 0, ',', '.') }}</td>
                             <td class="px-6 py-4 text-right">{{ number_format($gaji_data['potongan_tidak_disiplin_total'], 0, ',', '.') }}</td>

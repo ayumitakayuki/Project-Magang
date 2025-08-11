@@ -47,18 +47,37 @@ class HistoriRekapAbsensi extends Page implements HasTable
                     \Carbon\Carbon::parse($state)->format('d M') . ' - ' .
                     \Carbon\Carbon::parse($record->periode_akhir)->format('d M Y')
                 ),
-            Tables\Columns\TextColumn::make('sj')->label('SJ'),
-            Tables\Columns\TextColumn::make('sabtu')->label('Sabtu'),
-            Tables\Columns\TextColumn::make('minggu')->label('Minggu'),
-            Tables\Columns\TextColumn::make('hari_besar')->label('Hari Besar'),
-            Tables\Columns\TextColumn::make('tidak_masuk')->label('Tidak Masuk'),
-            Tables\Columns\TextColumn::make('sisa_jam')->label('Sisa Jam'),
-            Tables\Columns\TextColumn::make('total_jam')->label('Total Jam'),
+            Tables\Columns\TextColumn::make('sj')
+                ->label('SJ')
+                ->formatStateUsing(fn($state) => fmod($state, 1) === 0.0 ? (int) $state : number_format($state, 1)),
+
+            Tables\Columns\TextColumn::make('sabtu')
+                ->label('Sabtu')
+                ->formatStateUsing(fn($state) => fmod($state, 1) === 0.0 ? (int) $state : number_format($state, 1)),
+
+            Tables\Columns\TextColumn::make('minggu')
+                ->label('Minggu')
+                ->formatStateUsing(fn($state) => fmod($state, 1) === 0.0 ? (int) $state : number_format($state, 1)),
+
+            Tables\Columns\TextColumn::make('hari_besar')
+                ->label('Hari Besar')
+                ->formatStateUsing(fn($state) => fmod($state, 1) === 0.0 ? (int) $state : number_format($state, 1)),
+
+            Tables\Columns\TextColumn::make('tidak_masuk')
+                ->label('Tidak Masuk')
+                ->formatStateUsing(fn($state) => fmod($state, 1) === 0.0 ? (int) $state : number_format($state, 1)),
+
+            Tables\Columns\TextColumn::make('sisa_jam')
+                ->label('Sisa Jam')
+                ->formatStateUsing(fn($state) => fmod($state, 1) === 0.0 ? (int) $state : number_format($state, 1)),
+
+            Tables\Columns\TextColumn::make('total_jam')
+                ->label('Total Jam')
+                ->formatStateUsing(fn($state) => fmod($state, 1) === 0.0 ? (int) $state : number_format($state, 1)),
             Tables\Columns\TextColumn::make('jumlah_hari')
                 ->label('Jumlah Hari')
                 ->sortable()
-                ->formatStateUsing(fn ($state) => number_format($state, 0) . ' hari'),
-
+                ->formatStateUsing(fn($state) => (fmod($state, 1) === 0.0 ? (int) $state : number_format($state, 1)) . ' hari'),
         ];
     }
     protected function getTableBulkActions(): array

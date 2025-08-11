@@ -4,11 +4,44 @@
     <meta charset="UTF-8">
     <title>Slip Gaji - {{ $gaji->nama }}</title>
     <style>
-        body { font-family: sans-serif; font-size: 12px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #ccc; padding: 5px; }
-        th { background-color: #f2f2f2; }
+        @page {
+            margin: 20px;
+            size: A5 portrait;
+        }
+
+        body {
+            font-family: sans-serif;
+            font-size: 10px;
+            line-height: 1.4;
+        }
+
+        h2 {
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        h4 {
+            font-size: 12px;
+            margin-top: 15px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 4px 5px;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            font-size: 10px;
+        }
     </style>
+
 </head>
 <body>
     <img src="{{ public_path('images/logorku.jpg') }}" alt="Logo" style="width: 100%; margin-bottom: 20px;">
@@ -52,7 +85,7 @@
                     <td>{{ $item->keterangan }}</td>
                     <td align="center">
                         @if(is_numeric($item->masuk) && $item->masuk > 0)
-                            {{ number_format($item->masuk, 0, ',', '.') }}
+                            {{ number_format($item->masuk, (fmod($item->masuk, 1) == 0 ? 0 : 1), ',', '.') }}
                         @else
                             -
                         @endif
