@@ -1,0 +1,59 @@
+@startuml
+skinparam dpi 300
+skinparam activity {
+  BackgroundColor White
+  BorderColor Black
+  ArrowColor Black
+  FontSize 12
+}
+
+title Activity Diagram – Alur Lengkap Sistem Rekap Absensi & Slip Gaji
+
+start
+:Login ke sistem;
+if (Role valid?) then (Ya)
+  :Kelola data karyawan (CRUD);
+  :Import absensi (Excel);
+  if (Validasi format & duplikasi) then (Berhasil)
+    :Simpan data absensi ke DB;
+    :Pilih periode rekap;
+    :Rekap absensi otomatis
+    (hadir, SJ/lembur, Sabtu/Minggu/Libur, absen);
+    :Tinjau hasil rekap;
+
+    ' ---- Subproses Hitung Slip Gaji ----
+    :Ambil rekap absensi (periode terpilih);
+    :Ambil parameter karyawan
+    (status, gaji dasar, tarif lembur, faktor);
+    :Hitung penghasilan
+    (gaji pokok, lembur, tunjangan, uang makan);
+    :Hitung potongan
+    (BPJS, ketidakhadiran, disiplin, kasbon, lainnya);
+    :Simpan slip;
+    :Lihat/Edit;
+    if (Edit?) then (Ya)
+    :Edit slip / tambah item manual (potongan/tambahan/kasbon);
+    :Simpan ulang slip;
+
+    if (lihat?) then (Ya)
+        :Ekspor Slip (PDF/Excel);
+    else (Tidak)
+        :Lanjut proses lain;
+    endif
+
+    else (Tidak)
+    :Cancel;
+    endif
+
+    :Ekspor All Slip (PDF/Excel);
+    :Logout;
+  else (Gagal)
+    :Tampilkan error & minta perbaiki;
+    :back to Import absensi (Excel);
+  endif
+else (Tidak)
+  :403 Forbidden / Tampilkan pesan;
+  :Logout;
+endif
+stop
+@enduml

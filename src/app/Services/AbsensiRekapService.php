@@ -152,35 +152,6 @@ class AbsensiRekapService
                     }
                 }
             }
-            // $sisaJam = 0;
-
-            // if ($record && $record->masuk_pagi) {
-            //     $jamMasuk = Carbon::parse($record->masuk_pagi);
-            //     $jamNormal = Carbon::createFromTimeString('08:15');
-
-            //     if ($jamMasuk->gt($jamNormal)) {
-            //         $menitTerlambat = $jamNormal->diffInMinutes($jamMasuk);
-
-            //         if ($menitTerlambat <= 30) {
-            //             $sisaJam += 0.5;
-            //         } else {
-            //             $sisaJam += ceil($menitTerlambat / 30); // kelipatan 30 menit
-            //         }
-            //     }
-            // }
-
-            // $isHarianLepas = strtolower($record->karyawan->status ?? '') === 'harian lepas';
-            // if ($isHarianLepas && $record->pulang_kerja) {
-            //     $jamPulang = Carbon::parse($record->pulang_kerja)->format('H:i');
-
-            //     if ($jamPulang >= '14:00' && $jamPulang < '15:00') {
-            //         $sisaJam += 3;
-            //     } elseif ($jamPulang >= '15:00' && $jamPulang < '16:00') {
-            //         $sisaJam += 2;
-            //     } elseif ($jamPulang >= '16:00' && $jamPulang < '17:00') {
-            //         $sisaJam += 1;
-            //     }
-            // }
 
             $rekap['per_tanggal'][$nama][$tanggalStr] = [
                 'sj' => $kategori === 'sj' ? $jumlahJam . ' jam' : '-',
@@ -255,6 +226,12 @@ class AbsensiRekapService
 
             $lastAbsensiDate = collect($absensis)->keys()->sort()->last() ?? $end_date;
 
+            $split = app(\App\Services\SisaJamSplitService::class)
+            ->splitFromPerTanggal($rekap['per_tanggal'][$nama] ?? []);
+
+            // gabungkan ke per_user agar ikut tersimpan
+            $rekap['per_user'][$nama] = array_merge($rekap['per_user'][$nama], $split);
+
             $this->simpanRekapKeDatabase(
                 $nama,
                 $start_date,
@@ -262,7 +239,6 @@ class AbsensiRekapService
                 $rekap['per_user'][$nama] ?? [],
                 $rekap['per_tanggal'][$nama] ?? []
             );
-
 
             return $rekap;
     }
@@ -488,7 +464,11 @@ class AbsensiRekapService
 
             $tanggalTerakhir = collect($absensiTanggal ?? [])->keys()->sortDesc()->first();
             $periodeAkhir = $tanggalTerakhir ?? $end;
-        
+
+            $split = app(\App\Services\SisaJamSplitService::class)
+                        ->splitFromPerTanggal($rekap['per_tanggal'][$nama] ?? []);
+            $rekap['per_user'][$nama] = array_merge($rekap['per_user'][$nama], $split);
+           
             $this->simpanRekapKeDatabase(
                 $nama,
                 $start,
@@ -693,7 +673,16 @@ class AbsensiRekapService
                 'minggu'       => round($rekapUser['minggu'] ?? 0, 2),
                 'hari_besar'   => round($rekapUser['hari_besar'] ?? 0, 2),
                 'tidak_masuk'  => round($rekapUser['tidak_masuk'] ?? 0, 2),
+
+                // ← tambahan 4 kolom ini
+                'sisa_sj'         => round($rekapUser['sisa_sj'] ?? 0, 2),
+                'sisa_sabtu'      => round($rekapUser['sisa_sabtu'] ?? 0, 2),
+                'sisa_minggu'     => round($rekapUser['sisa_minggu'] ?? 0, 2),
+                'sisa_hari_besar' => round($rekapUser['sisa_hari_besar'] ?? 0, 2),
+
+                // tetap isi sisa_jam dari hasil service baru
                 'sisa_jam'     => round($rekapUser['sisa_jam'] ?? 0, 2),
+
                 'total_jam'    => round($rekapUser['total_jam'] ?? 0, 2),
                 'jumlah_hari'  => round($rekapUser['jumlah_hari'] ?? 0, 2),
             ]

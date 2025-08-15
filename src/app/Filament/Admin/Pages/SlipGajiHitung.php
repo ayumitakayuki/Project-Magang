@@ -9,6 +9,7 @@ use App\Models\Gaji;
 use App\Models\GajiDetail;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
+use Carbon\Carbon;
 
 class SlipGajiHitung extends Page
 {
@@ -73,6 +74,7 @@ class SlipGajiHitung extends Page
             $this->loadGajiData(); // jika perlu muat data detail juga
         } elseif ($this->start_date && $this->end_date && $this->karyawan_id) {
             $this->hitungGaji();
+            $this->autoAddDefaultDeductions();
         }
     }
 
@@ -84,6 +86,7 @@ class SlipGajiHitung extends Page
             $this->end_date
         );
 
+        $this->autoAddDefaultDeductions();
         $this->calculateGrandTotal();
     }
 
@@ -513,6 +516,88 @@ class SlipGajiHitung extends Page
         return [
             'editingGajiId' => $this->editingGajiId,
         ];
+    }
+    private function isFirstHalfPeriod(): bool
+    {
+        if (!$this->start_date || !$this->end_date) return false;
+        $awal  = Carbon::parse($this->start_date);
+        $akhir = Carbon::parse($this->end_date);
+
+        return $awal->day === 1
+            && $akhir->day === 15
+            && $awal->month === $akhir->month
+            && $awal->year === $akhir->year;
+    }
+    private function pushAdditionalItemIfMissing(string $type, int $qty = 1, float $faktor = 1.0): void
+    {
+        $itemTypes = [
+            'bpjs_kesehatan' => ['keterangan' => 'Potongan BPJS Kesehatan',      'no' => 'k'],
+            'bpjs_tk'        => ['keterangan' => 'Potongan BPJS TK',             'no' => 'l'],
+            'bpjs_gabungan'  => ['keterangan' => 'Potongan BPJS Kesehatan + TK', 'no' => 'm'],
+        ];
+
+        if (!isset($itemTypes[$type])) return;
+
+        $nominals = $this->gaji_data['nominals'] ?? [];
+        $nominal  = (float)($nominals[$type] ?? 0);
+
+        if ($nominal <= 0) return; // hanya yang punya harga
+
+        $keterangan = $itemTypes[$type]['keterangan'];
+
+        if (collect($this->additional_items)->contains('keterangan', $keterangan)) return;
+
+        $this->additional_items[] = [
+            'no'             => $itemTypes[$type]['no'],
+            'keterangan'     => $keterangan,
+            'masuk'          => $qty,
+            'faktor'         => $faktor,
+            'nominal_lembur' => $nominal,
+            'total'          => $qty * $nominal * $faktor,
+        ];
+    }
+
+    private function autoAddDefaultDeductions(): void
+    {
+        if (!$this->overlapsFirstHalf()) return; // <-- ganti di sini
+
+        $nominals = $this->gaji_data['nominals'] ?? [];
+        $has = fn($k) => isset($nominals[$k]) && (float)$nominals[$k] > 0;
+
+        if ($has('bpjs_gabungan')) {
+            $this->pushAdditionalItemIfMissing('bpjs_gabungan');
+        } else {
+            if ($has('bpjs_kesehatan')) $this->pushAdditionalItemIfMissing('bpjs_kesehatan');
+            if ($has('bpjs_tk'))        $this->pushAdditionalItemIfMissing('bpjs_tk');
+        }
+
+        $this->calculateGrandTotal();
+    }
+
+    private function overlapsFirstHalf(): bool
+    {
+        if (!$this->start_date || !$this->end_date) return false;
+
+        $start = Carbon::parse($this->start_date);
+        $end   = Carbon::parse($this->end_date);
+
+        // kalau user kebalik isi tanggal
+        if ($start->gt($end)) [$start, $end] = [$end, $start];
+
+        // iterasi tiap bulan yang terlintasi oleh rentang tanggal
+        $cursor = $start->copy()->startOfMonth();
+        while ($cursor->lte($end)) {
+            // paruh pertama bulan ini: tgl 1 s/d 15 (inklusif)
+            $halfStart = $cursor->copy()->startOfMonth();        // 1
+            $halfEnd   = $cursor->copy()->startOfMonth()->day(15); // 15
+
+            // cek overlap dua rentang: [start,end] vs [halfStart,halfEnd]
+            $overlap = $start->lte($halfEnd) && $end->gte($halfStart);
+            if ($overlap) return true;
+
+            $cursor->addMonth();
+        }
+        return false;
     }
 
 }

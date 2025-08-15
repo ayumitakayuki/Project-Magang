@@ -25,6 +25,10 @@ return new class extends Migration
             $table->decimal('hari_besar', 5, 2)->default(0);
             $table->decimal('tidak_masuk', 5, 2)->default(0);
             $table->decimal('sisa_jam', 5, 2)->default(0);
+            $table->decimal('sisa_sj', 5, 2)->default(0);
+            $table->decimal('sisa_sabtu', 5, 2)->default(0);
+            $table->decimal('sisa_minggu', 5, 2)->default(0);
+            $table->decimal('sisa_hari_besar', 5, 2)->default(0);
             $table->decimal('total_jam', 5, 2)->default(0);
             $table->decimal('jumlah_hari', 5, 2)->default(0);
 
