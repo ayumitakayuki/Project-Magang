@@ -20,6 +20,10 @@ class LaporanKasbon extends Page
 
     public string $bulan;   // format: Y-m
     public string $q = '';
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false; // ⟵ disembunyikan dari menu
+    }
 
     /** @var array<int, array> */
     public array $rows = [];   // baris laporan per karyawan
