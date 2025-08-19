@@ -10,7 +10,7 @@ class Gaji extends Model
 
     protected $fillable = [
         'id_karyawan', 'nama', 'status', 'lokasi', 'jenis_proyek',
-        'periode_awal', 'periode_akhir',
+        'periode_awal', 'periode_akhir', 'tipe_pembayaran',
     ];
 
     public function details()

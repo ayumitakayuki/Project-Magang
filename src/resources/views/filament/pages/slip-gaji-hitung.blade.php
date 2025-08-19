@@ -268,90 +268,16 @@
                         </tr>
 
                         {{-- kasbon --}}
-                        <tr x-data="{
-                            editing: {
-                                masuk: false,
-                                faktor: false,
-                                nominal: false
-                            },
-                            values: {
-                                masuk: '{{ $gaji_data['kasbon_masuk'] ?? 0 }}',
-                                faktor: '{{ $gaji_data['kasbon_faktor'] ?? 0 }}',
-                                nominal: '{{ $gaji_data['kasbon_nominal'] ?? 0 }}',
-                                kasbonTotal: '{{ $gaji_data['kasbon'] ?? 0 }}'
-                            }
-                        }">
+                        <tr>
                             <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
-                            <td class="px-4 py-2">Kasbon</td>
-                            <td class="px-4 py-2 text-center">
-                                <div x-show="!editing.masuk" 
-                                    @click="editing.masuk = true" 
-                                    class="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded inline-flex items-center gap-1">
-                                    {{ $gaji_data['kasbon_masuk'] ?? '-' }}
-                                    <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                                    </svg>
-                                </div>
-                                <input type="number" 
-                                    x-show="editing.masuk" 
-                                    x-model="values.masuk"
-                                    @blur="editing.masuk = false; $wire.updateKasbonField('masuk', values.masuk)"
-                                    @keydown.enter="editing.masuk = false; $wire.updateKasbonField('masuk', values.masuk)"
-                                    class="w-16 text-sm border-gray-300 rounded-md">
+                            <td class="px-4 py-2">Kasbon (otomatis)</td>
+                            <td class="px-4 py-2 text-center">{{ (int)($gaji_data['kasbon_masuk'] ?? 0) }}</td>
+                            <td class="px-4 py-2 text-center">-</td>
+                            <td class="px-4 py-2 text-right">
+                                Rp {{ number_format((float)($gaji_data['kasbon_nominal'] ?? 0), 0, ',', '.') }}
                             </td>
-                            <td class="px-4 py-2 text-center">
-                                <div x-show="!editing.faktor" 
-                                    @click="editing.faktor = true" 
-                                    class="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded inline-flex items-center gap-1">
-                                    
-                                    {{ empty($gaji_data['kasbon_faktor']) || $gaji_data['kasbon_faktor'] == '1' ? '-' : $gaji_data['kasbon_faktor'] }}
-
-                                    <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                                    </svg>
-                                </div>
-                                <input type="number" 
-                                    x-show="editing.faktor" 
-                                    x-model="values.faktor" 
-                                    step="0.1" 
-                                    @blur="editing.faktor = false; $wire.updateKasbonField('faktor', values.faktor)" 
-                                    @keydown.enter="editing.faktor = false; $wire.updateKasbonField('faktor', values.faktor)" 
-                                    class="w-16 text-sm border-gray-300 rounded-md">
-                            </td>
-                            <td class="px-4 py-2 text-center">
-                                <div x-show="!editing.nominal" 
-                                    @click="editing.nominal = true" 
-                                    class="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded inline-flex items-center gap-1">
-                                    Rp {{ number_format($gaji_data['kasbon_nominal'] ?? 0, 0, ',', '.') }}
-                                    <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                                    </svg>
-                                </div>
-                                <input type="number" 
-                                    x-show="editing.nominal" 
-                                    x-model="values.nominal"
-                                    @blur="editing.nominal = false; $wire.updateKasbonField('nominal_lembur', values.nominal)"
-                                    @keydown.enter="editing.nominal = false; $wire.updateKasbonField('nominal_lembur', values.nominal)"
-                                    class="w-16 text-sm border-gray-300 rounded-md">
-                            </td>
-                            <td class="px-4 py-2 text-center">
-                                <div x-show="!editing.kasbonTotal" 
-                                    @click="editing.kasbonTotal = true" 
-                                    class="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded inline-flex items-center gap-1">
-                                    {{ number_format($gaji_data['kasbon'] ?? 0, 0, ',', '.') }}
-
-                                    <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                                    </svg>
-                                </div>                               
-                                <input type="number" 
-                                    x-show="editing.kasbonTotal" 
-                                    x-model="values.kasbonTotal" 
-                                    @blur="editing.kasbonTotal = false; $wire.updateKasbonField('total', values.kasbonTotal)" 
-                                    @keydown.enter="editing.kasbonTotal = false; $wire.updateKasbonField('total', values.kasbonTotal)" 
-                                    class="w-20 text-sm border-gray-300 rounded-md">
+                            <td class="px-4 py-2 text-right font-semibold">
+                                Rp {{ number_format((float)($gaji_data['kasbon'] ?? 0), 0, ',', '.') }}
                             </td>
                         </tr>
                         <tr class="font-bold">

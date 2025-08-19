@@ -85,14 +85,30 @@ class KasbonLoanResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (Builder $query) {
+                $query
+                    ->withCount('payments')
+                    ->withSum('payments as payments_sum_nominal', 'nominal');
+            })
             ->columns([
                 Tables\Columns\TextColumn::make('karyawan.nama')->label('Karyawan')->searchable(),
                 Tables\Columns\TextColumn::make('tanggal')->date('d M Y')->sortable(),
                 Tables\Columns\TextColumn::make('pokok')->money('IDR', true)->label('Pokok'),
                 Tables\Columns\TextColumn::make('tenor')->label('X'),
                 Tables\Columns\TextColumn::make('cicilan')->money('IDR', true),
-                Tables\Columns\TextColumn::make('sisa_kali')->label('Sisa X'),
-                Tables\Columns\TextColumn::make('sisa_saldo')->money('IDR', true)->label('Sisa Saldo'),
+
+                // ⬇️ pakai accessor realtime (berdasarkan payments)
+                Tables\Columns\TextColumn::make('sisa_kali_realtime')
+                    ->label('Sisa X')
+                    ->state(fn ($record) => $record->sisa_kali_realtime)
+                    ->sortable(false),
+
+                Tables\Columns\TextColumn::make('sisa_saldo_realtime')
+                    ->label('Sisa Saldo')
+                    ->state(fn ($record) => $record->sisa_saldo_realtime)
+                    ->money('IDR', true)
+                    ->sortable(false),
+
                 Tables\Columns\BadgeColumn::make('status'),
             ])
             ->actions([
@@ -100,7 +116,7 @@ class KasbonLoanResource extends Resource
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ]);
-}
+    }
 
     public static function getRelations(): array
     {
