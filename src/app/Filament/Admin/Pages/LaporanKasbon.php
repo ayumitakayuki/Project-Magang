@@ -20,7 +20,7 @@ class LaporanKasbon extends Page
     public string $q = '';
     public static function shouldRegisterNavigation(): bool
     {
-        return false; // ⟵ disembunyikan dari menu
+        return false;
     }
 
     /** @var array<int, array> */

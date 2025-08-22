@@ -29,15 +29,23 @@
                     value="{{ request('end_date') }}"
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-black">
             </div>
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700">Tipe Pembayaran</label>
+                <select
+                    name="tipe_pembayaran"
+                    wire:model="tipe_pembayaran"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-black"
+                >
+                    <option value="payroll">Payroll</option>
+                    <option value="non_payroll">Non Payroll</option>
+                </select>
+            </div>
             <div class="flex items-end">
                 <button type="submit"
                     class="bg-blue-500 text-black px-6 py-2 rounded-md shadow hover:bg-blue-600 transition-all duration-200 ease-in-out">
                     Hitung Gaji
                 </button>
             </div>
-
-
-
         </div>
 
         </form>

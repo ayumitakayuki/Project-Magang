@@ -70,6 +70,17 @@ class HistoriSlipGaji extends Page implements HasTable
                 ->getStateUsing(fn ($record) =>
                     'Rp ' . number_format(optional($record->details->where('kode', 'grand')->first())->total ?? 0, 0, ',', '.')
                 ),
+            Tables\Columns\TextColumn::make('tipe_pembayaran')
+                ->label('Tipe')
+                ->badge()
+                ->sortable()
+                ->searchable()
+                ->formatStateUsing(fn ($state) => $state ? ucwords(str_replace('-', ' ', $state)) : '-')
+                ->color(fn ($state) => match ($state) {
+                    'payroll'      => 'success',
+                    'non-payroll'  => 'warning',
+                    default        => 'gray',
+                }),
             Tables\Columns\TextColumn::make('aksi')
                 ->label('Aksi')
                 ->html()
@@ -121,6 +132,12 @@ class HistoriSlipGaji extends Page implements HasTable
                     Karyawan::query()->whereNotNull('jenis_proyek')->distinct()->pluck('jenis_proyek', 'jenis_proyek')->toArray()
                 )
                 ->searchable(),
+            SelectFilter::make('tipe_pembayaran')
+                ->label('Tipe Pembayaran')
+                ->options([
+                    'payroll'     => 'Payroll',
+                    'non-payroll' => 'Non Payroll',
+                ]),
         ];
     }
     protected function getTableBulkActions(): array

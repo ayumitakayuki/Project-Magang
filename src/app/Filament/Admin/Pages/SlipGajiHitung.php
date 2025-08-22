@@ -64,19 +64,22 @@ class SlipGajiHitung extends Page
         $this->start_date    = request()->query('start_date');
         $this->end_date      = request()->query('end_date');
 
+        $this->tipe_pembayaran = request()->query('tipe_pembayaran', $this->tipe_pembayaran);
+
         if ($this->editingGajiId) {
             $gaji = Gaji::with('details')->findOrFail($this->editingGajiId);
 
-            $this->karyawan_id = $gaji->id_karyawan;
-            $this->start_date  = $gaji->periode_awal->format('Y-m-d');
-            $this->end_date    = $gaji->periode_akhir->format('Y-m-d');
+            $this->karyawan_id     = $gaji->id_karyawan;
+            $this->start_date      = $gaji->periode_awal->format('Y-m-d');
+            $this->end_date        = $gaji->periode_akhir->format('Y-m-d');
+            
+            $this->tipe_pembayaran = $gaji->tipe_pembayaran ?? 'payroll';
 
             $this->hitungGaji();
             $this->loadGajiData();
             if (! $this->hydrateKasbonFromSlipPayments((int) $this->editingGajiId)) {
                 $this->computeKasbonAuto();
             }
-
             $this->calculateGrandTotal();
             return;
         }
@@ -85,7 +88,6 @@ class SlipGajiHitung extends Page
             $this->hitungGaji();
         }
     }
-
 
     public function hitungGaji()
     {
@@ -286,20 +288,21 @@ class SlipGajiHitung extends Page
         DB::beginTransaction();
 
         try {
-            // Buat atau update header
+            $payload = [
+                'id_karyawan'      => $this->gaji_data['id_karyawan'],
+                'nama'             => $this->gaji_data['nama'],
+                'status'           => $this->gaji_data['status'],
+                'lokasi'           => $this->gaji_data['lokasi'],
+                'jenis_proyek'     => $this->gaji_data['jenis_proyek'],
+                'periode_awal'     => $this->gaji_data['periode_awal'],
+                'periode_akhir'    => $this->gaji_data['periode_akhir'],
+                'tipe_pembayaran'  => $this->tipe_pembayaran,   // ⬅️ penting
+            ];
+
             if ($this->editingGajiId) {
                 $gaji = Gaji::findOrFail($this->editingGajiId);
-                $gaji->update([
-                    'id_karyawan' => $this->gaji_data['id_karyawan'],
-                    'nama' => $this->gaji_data['nama'],
-                    'status' => $this->gaji_data['status'],
-                    'lokasi' => $this->gaji_data['lokasi'],
-                    'jenis_proyek' => $this->gaji_data['jenis_proyek'],
-                    'periode_awal' => $this->gaji_data['periode_awal'],
-                    'periode_akhir' => $this->gaji_data['periode_akhir'],
-                ]);
+                $gaji->update($payload);
 
-                // Hapus semua detail lama
                 $gaji->details()->delete();
             } else {
                 $gaji = Gaji::create([
