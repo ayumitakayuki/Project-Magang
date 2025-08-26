@@ -14,6 +14,7 @@ class KaryawanImport implements ToCollection, WithHeadingRow
         'id_karyawan',
         'nama',
         'status',
+        'bagian',
         'lokasi',
         'jenis_proyek',
         'gaji_perbulan',
@@ -70,6 +71,7 @@ class KaryawanImport implements ToCollection, WithHeadingRow
                 [
                     'nama' => $row['nama'],
                     'status' => $row['status'] ?? null,
+                    'bagian' => $row['bagian'] ?? null,
                     'lokasi' => $row['lokasi'] ?? null,
                     'jenis_proyek' => $row['jenis_proyek'] ?? null,
                     'gaji_perbulan' => $row['gaji_perbulan'] ?? null,

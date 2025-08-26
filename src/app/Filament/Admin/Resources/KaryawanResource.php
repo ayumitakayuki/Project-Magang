@@ -45,6 +45,11 @@ class KaryawanResource extends Resource
                 ])
                 ->required(),
 
+            TextInput::make('bagian')
+                ->label('Bagian')
+                ->maxLength(100)
+                ->required(),
+
             Select::make('lokasi')
                 ->label('Lokasi')
                 ->options([
@@ -66,7 +71,6 @@ class KaryawanResource extends Resource
             })
             ->visible(fn ($get) => $get('lokasi') === 'proyek')
             ->required(fn ($get) => $get('lokasi') === 'proyek'),
-
 
             TextInput::make('gaji_perbulan')
                 ->label('Gaji Per Bulan')
@@ -140,17 +144,30 @@ class KaryawanResource extends Resource
                     ->label('Status')
                     ->sortable(),
 
+                TextColumn::make('bagian')
+                    ->label('Bagian')
+                    ->sortable()
+                    ->searchable(),
+
                 TextColumn::make('lokasi')
                     ->label('Lokasi')
                     ->sortable(),
 
                 TextColumn::make('jenis_proyek')
-                ->label('Jenis Proyek')
-                ->sortable()
-                ->formatStateUsing(function ($state, $record) {
-                    $validProjects = ['Proyek A', 'Proyek B', 'Proyek C'];
-                    return $record->lokasi === 'proyek' && in_array($state, $validProjects) ? $state : '-';
-                }),
+                    ->label('Jenis Proyek')
+                    ->sortable()
+                    ->searchable()
+                    ->formatStateUsing(function ($state, $record) {
+                        // pastikan 'proyek' persis (enum kamu pakai lowercase)
+                        if (strtolower((string) $record->lokasi) !== 'proyek') {
+                            return '-';
+                        }
+
+                        // tampilkan apa adanya tapi rapi (trim)
+                        $val = is_string($state) ? trim($state) : $state;
+
+                        return $val && $val !== '' ? $val : '-';
+                    }),
 
                 TextColumn::make('gaji_perbulan')
                     ->label('Gaji Per Bulan')

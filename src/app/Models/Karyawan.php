@@ -13,6 +13,7 @@ class Karyawan extends Model
         'nama',
         'status',
         'lokasi',
+        'bagian',
         'jenis_proyek',
         'gaji_perbulan',
         'gaji_lembur',
@@ -40,5 +41,15 @@ class Karyawan extends Model
                 $karyawan->id_karyawan = 'KR-' . strtoupper(uniqid());
             }
         });
+    }
+    public function setJenisProyekAttribute($value)
+    {
+        $this->attributes['jenis_proyek'] = is_string($value) ? trim($value) : $value;
+    }
+
+    public function setLokasiAttribute($value)
+    {
+        $v = is_string($value) ? strtolower(trim($value)) : $value;
+        $this->attributes['lokasi'] = in_array($v, ['workshop','proyek'], true) ? $v : null;
     }
 }

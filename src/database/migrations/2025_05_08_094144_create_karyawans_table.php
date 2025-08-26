@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('nama', 100);
             $table->enum('status', ['staff', 'harian tetap', 'harian lepas'])->default('harian tetap');
             $table->enum('lokasi', ['workshop', 'proyek'])->default('workshop');
+            $table->string('bagian', 100)->nullable();
             $table->string('jenis_proyek', 100)->nullable();
             $table->decimal('gaji_perbulan', 15, 2)->nullable();
             $table->decimal('gaji_lembur', 15, 2)->nullable();
