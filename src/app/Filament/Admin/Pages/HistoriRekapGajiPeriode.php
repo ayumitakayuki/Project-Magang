@@ -8,10 +8,7 @@ use Filament\Tables;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Filters\Filter;
-use Filament\Tables\Actions\BulkAction;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\RekapGajiPeriodeExport;
 use Illuminate\Database\Eloquent\Builder;
 
 class HistoriRekapGajiPeriode extends Page implements HasTable
@@ -33,11 +30,13 @@ class HistoriRekapGajiPeriode extends Page implements HasTable
             ->withCount('rows')
             ->latest('start_date');
     }
-
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
     protected function getTableColumns(): array
     {
         return [
-            // Periode: pakai field start_date agar ada datanya & bisa di-sort
             Tables\Columns\TextColumn::make('start_date')
                 ->label('Periode')
                 ->sortable()
@@ -45,7 +44,6 @@ class HistoriRekapGajiPeriode extends Page implements HasTable
                     ($record->start_date?->format('d M Y') ?? '-') . ' - ' .
                     ($record->end_date?->format('d M Y') ?? '-')
                 ),
-
             Tables\Columns\TextColumn::make('rows_count')
                 ->label('Baris')
                 ->badge(),
@@ -73,23 +71,6 @@ class HistoriRekapGajiPeriode extends Page implements HasTable
             Tables\Columns\TextColumn::make('created_at')
                 ->label('Dibuat')
                 ->dateTime('d M Y H:i'),
-
-            // Aksi: hanya Lihat & Edit (PDF/Excel dihapus dari sini)
-            Tables\Columns\TextColumn::make('aksi')
-                ->label('Aksi')
-                ->html()
-                ->getStateUsing(function ($record) {
-                    $lihatUrl = route('filament.admin.pages.detail-rekap-gaji-periode', ['id' => $record->id]);
-                    $editUrl  = route('filament.admin.pages.rekap-gaji-periode', ['rekap_id' => $record->id]);
-
-                    return <<<HTML
-                        <div class="flex items-center justify-center gap-3">
-                            <a href="{$lihatUrl}" class="text-blue-600 hover:underline">Lihat</a>
-                            <a href="{$editUrl}"  class="text-orange-600 hover:underline">Edit</a>
-                        </div>
-                    HTML;
-                })
-                ->alignCenter(),
         ];
     }
 
@@ -110,21 +91,25 @@ class HistoriRekapGajiPeriode extends Page implements HasTable
                 }),
         ];
     }
-
+    protected function getTableActions(): array
+    {
+        return [
+            Tables\Actions\Action::make('open')
+                ->label('Buka Rekap')
+                ->icon('heroicon-o-arrow-top-right-on-square')
+                ->url(fn (\App\Models\RekapGajiPeriod $record) =>
+                    \App\Filament\Admin\Pages\RekapGajiPeriode::getUrl(['rekap_id' => $record->id])
+                )
+                ->openUrlInNewTab(),
+        ];
+    }
     protected function getTableBulkActions(): array
     {
         return [
-            Tables\Actions\DeleteBulkAction::make(),
-
-            // Export Excel massal (opsional)
-            BulkAction::make('export_excel_massal')
-                ->label('Export Excel (Massal)')
-                ->icon('heroicon-o-document-arrow-down')
-                ->action(function (\Illuminate\Support\Collection $records) {
-                    $ids = $records->pluck('id')->toArray();
-                    $filename = 'Rekap-Gaji-Periode-' . now()->format('Ymd_His') . '.xlsx';
-                    return Excel::download(new RekapGajiPeriodeExport($ids, true), $filename);
-                }),
+            Tables\Actions\DeleteBulkAction::make()
+                ->label('Hapus Terpilih')
+                ->requiresConfirmation(),
         ];
     }
+
 }

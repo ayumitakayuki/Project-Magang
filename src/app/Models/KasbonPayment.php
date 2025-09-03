@@ -15,7 +15,7 @@ class KasbonPayment extends Model
         'periode_label',
         'catatan',
     ];
-
+    protected $guarded = []; 
     // 🔧 TEGASKAN foreign key-nya agar tidak pernah mencoba pakai "loan_id"
     public function loan()
     {

@@ -19,7 +19,7 @@ return new class extends Migration
             $table->enum('lokasi', ['workshop', 'proyek'])->default('workshop');
             $table->string('bagian', 100)->nullable();
             $table->string('jenis_proyek', 100)->nullable();
-            $table->decimal('gaji_perbulan', 15, 2)->nullable();
+            $table->decimal('gaji_setengah_bulan', 15, 2)->nullable();
             $table->decimal('gaji_lembur', 15, 2)->nullable();
             $table->decimal('gaji_harian', 15, 2)->nullable();
             $table->decimal('uang_makan_lembur_malam', 15, 2)->nullable();

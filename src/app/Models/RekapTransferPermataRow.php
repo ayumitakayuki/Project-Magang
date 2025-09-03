@@ -3,17 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class RekapTransferPermataRow extends Model
 {
-    use HasFactory;
+    protected $table = 'rekap_transfer_permata_rows';
+    public $timestamps = true;
 
-    protected $fillable = [
-        'rekap_transfer_permata_id','no_urut',
-        'no_id','bagian','lokasi','proyek','nama',
-        'pembulatan','kasbon','sisa_kasbon','gaji_16_31','gaji_15_31','transfer',
-    ];
+    // HAPUS: protected $connection = 'magang';
+    protected $guarded = [];
 
     public function batch()
     {

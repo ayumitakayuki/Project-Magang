@@ -59,7 +59,7 @@ class SlipGajiHitung extends Page
 
     public function mount(): void
     {
-        $this->editingGajiId = request()->query('id');
+        $this->editingGajiId = request()->query('id') ?? request()->query('gaji_id') ?? request()->query('record');
         $this->karyawan_id   = request()->query('karyawan_id');
         $this->start_date    = request()->query('start_date');
         $this->end_date      = request()->query('end_date');
@@ -77,7 +77,7 @@ class SlipGajiHitung extends Page
 
             $this->hitungGaji();
             $this->loadGajiData();
-            if (! $this->hydrateKasbonFromSlipPayments((int) $this->editingGajiId)) {
+            if (! $this->hydrateKasbonFromSlipPayments()) {
                 $this->computeKasbonAuto();
             }
             $this->calculateGrandTotal();
@@ -313,6 +313,7 @@ class SlipGajiHitung extends Page
                     'jenis_proyek' => $this->gaji_data['jenis_proyek'],
                     'periode_awal' => $this->gaji_data['periode_awal'],
                     'periode_akhir' => $this->gaji_data['periode_akhir'],
+                    'tipe_pembayaran' => $this->tipe_pembayaran ?? 'payroll',
                 ]);
             }
             GajiDetail::create([
@@ -398,7 +399,6 @@ class SlipGajiHitung extends Page
             GajiDetail::create([
                 'gaji_id' => $gaji->id,
                 'kode' => 'h',
-                'keterangan' => 'Kasbon',
                 'keterangan' => 'Kasbon (otomatis)',
                 'masuk' => $this->gaji_data['kasbon_masuk'] ?? 0,
                 'faktor' => $this->gaji_data['kasbon_faktor'] ?? 1,
@@ -430,11 +430,12 @@ class SlipGajiHitung extends Page
         // Hapus semua pembayaran yang memang dibuat oleh slip ini
         KasbonPayment::where('slip_gaji_id', $gaji->id)->delete();
 
-        $slots = $this->overlappedHalfBoundaries();
+        // $slots = $this->overlappedHalfBoundaries();
         foreach ($this->kasbon_loans as $row) {
             $loanId = (int) ($row['loan_id'] ?? 0);
             $units  = (int) ($row['units']   ?? 0);
             $unit   = (float)($row['unit']    ?? 0);
+            $loanSlots = $row['slots'] ?? [];
             if ($loanId <= 0 || $units <= 0 || $unit <= 0) continue;
 
             $loan  = KasbonLoan::withSum('payments as payments_sum_nominal', 'nominal')->find($loanId);
@@ -442,9 +443,9 @@ class SlipGajiHitung extends Page
 
             $saldo = max(0.0, (float)$loan->pokok - (float)($loan->payments_sum_nominal ?? 0));
 
-            for ($i = 0; $i < $units && $i < count($slots) && $saldo > 0; $i++) {
+            for ($i = 0; $i < $units && $i < count($loanSlots) && $saldo > 0; $i++) {
                 $pay  = min($unit, $saldo);
-                $slot = $slots[$i];
+                $slot = $loanSlots[$i];
 
                 KasbonPayment::updateOrCreate(
                     [
@@ -644,57 +645,131 @@ class SlipGajiHitung extends Page
 
         if (!$this->karyawan_id) return;
 
-        $slots = $this->overlappedHalfBoundaries();
-        $slotsCount = count($slots);
-        if ($slotsCount === 0) return;
+        // pakai boundary sesuai pay-day
+        $slots = $this->overlappedPaydayBoundaries();
+        if (count($slots) === 0) return;
+
+        // pastikan ini PK karyawan (lihat diskusi sebelumnya)
+        $loanKaryawanId = $this->loanKaryawanId() ?? $this->karyawan_id;
 
         $loans = \App\Models\KasbonLoan::query()
-            ->where('karyawan_id', $this->karyawan_id)
+            ->where('karyawan_id', $loanKaryawanId)
             ->where('status', '!=', 'ditutup')
             ->withCount('payments')
             ->withSum('payments as payments_sum_nominal','nominal')
             ->get();
 
-        $totalPotongan      = 0.0;
-        $unitsAppliedTotal  = 0;
+        $total = 0.0; $unitsTotal = 0;
 
         foreach ($loans as $loan) {
             $paid  = (float)($loan->payments_sum_nominal ?? 0);
             $saldo = max(0.0, (float)$loan->pokok - $paid);
             $sisaX = max(0, (int)$loan->tenor - (int)$loan->payments_count);
             $unit  = (float)$loan->cicilan;
-
             if ($saldo <= 0 || $unit <= 0 || $sisaX <= 0) continue;
 
-            $unitsToCharge = min($slotsCount, $sisaX);
+            $first = $this->firstBoundaryAfterLoan(\Carbon\Carbon::parse($loan->tanggal));
 
-            $amountThisLoan = 0.0;
-            $applied = 0;
-            for ($i = 0; $i < $unitsToCharge && $saldo > 0; $i++) {
+            // hanya slot pada/ setelah boundary pertama
+            $eligible = array_values(array_filter(
+                $slots,
+                fn($s) => \Carbon\Carbon::parse($s['date'])->gte($first)
+            ));
+            if (count($eligible) === 0) continue;
+
+            $applied = 0; $amount = 0.0; $chosen = [];
+            for ($i = 0; $i < min(count($eligible), $sisaX) && $saldo > 0; $i++) {
                 $pay = min($unit, $saldo);
-                $amountThisLoan += $pay;
-                $saldo -= $pay;
-                $applied++;
+                $amount += $pay; $saldo -= $pay; $applied++;
+                $chosen[] = $eligible[$i];
             }
-
-            if ($amountThisLoan <= 0) continue;
+            if ($amount <= 0) continue;
 
             $this->kasbon_loans[] = [
                 'loan_id' => $loan->id,
                 'unit'    => $unit,
                 'units'   => $applied,
-                'amount'  => $amountThisLoan,
-                'sisa_x'  => $sisaX,
+                'amount'  => $amount,
+                'slots'   => $chosen,
             ];
 
-            $totalPotongan     += $amountThisLoan;
-            $unitsAppliedTotal += $applied;
+            $total += $amount; $unitsTotal += $applied;
         }
 
-        $this->gaji_data['kasbon']         = $totalPotongan;
-        $this->gaji_data['kasbon_masuk']   = $unitsAppliedTotal;
-        $this->gaji_data['kasbon_nominal'] = $totalPotongan;
+        $this->gaji_data['kasbon']         = $total;
+        $this->gaji_data['kasbon_masuk']   = $unitsTotal;
+        $this->gaji_data['kasbon_nominal'] = $total;
     }
+
+    private function overlapsSecondHalf(): bool
+    {
+        if (!$this->start_date || !$this->end_date) return false;
+
+        $start = \Carbon\Carbon::parse($this->start_date);
+        $end   = \Carbon\Carbon::parse($this->end_date);
+        if ($start->gt($end)) [$start, $end] = [$end, $start];
+
+        $cursor = $start->copy()->startOfMonth();
+        while ($cursor->lte($end)) {
+            $half2Start = $cursor->copy()->day(16)->startOfDay();
+            $half2End   = $cursor->copy()->endOfMonth()->endOfDay();
+
+            if ($start->lte($half2End) && $end->gte($half2Start)) return true;
+
+            $cursor->addMonth();
+        }
+        return false;
+    }
+    private function firstBoundaryAfterLoan(\Carbon\Carbon $loanDate): \Carbon\Carbon
+{
+    $payday = $this->kasbonPayday(); // 1 atau 16
+    $sameMonthBoundary = $loanDate->copy()->day($payday)->startOfDay();
+
+    // kalau loan dibuat SEBELUM boundary bulan itu → pakai boundary bulan itu,
+    // kalau loan dibuat PADA/SETELAH boundary → pakai boundary bulan berikutnya
+    return $loanDate->lt($sameMonthBoundary)
+        ? $sameMonthBoundary
+        : $sameMonthBoundary->copy()->addMonthNoOverflow();
+}
+
+
+
+    private function overlappedPaydayBoundaries(): array
+    {
+        if (!$this->start_date || !$this->end_date) return [];
+
+        $start  = \Carbon\Carbon::parse($this->start_date)->startOfDay();
+        $end    = \Carbon\Carbon::parse($this->end_date)->endOfDay();
+        if ($start->gt($end)) [$start, $end] = [$end, $start];
+
+        $payday = $this->kasbonPayday(); // 1 atau 16
+        $cursor = $start->copy()->startOfMonth();
+        $out    = [];
+
+        while ($cursor->lte($end)) {
+            $boundary = $cursor->copy()->day($payday)->startOfDay();
+            if ($boundary->betweenIncluded($start, $end)) {
+                $label = ($payday === 1)
+                    ? '01–15 '   . $boundary->format('M Y')
+                    : '16–Akhir ' . $boundary->format('M Y');
+
+                $out[] = [
+                    'date'  => $boundary->toDateString(), // dicatat PERSIS di pay-day
+                    'label' => $label,
+                ];
+            }
+            $cursor->addMonth();
+        }
+
+        return $out;
+    }
+
+    private function kasbonPayday(): int
+    {
+        // 1 atau 16
+        return 1; // ← ubah ke 16 jika pay-day perusahaan tanggal 16
+    }
+
 
     private function kasbonPeriodeLabel(): string
     {
@@ -715,24 +790,12 @@ class SlipGajiHitung extends Page
         $out = [];
 
         while ($cursor->lte($end)) {
-            // 01–15
-            $half1Start = $cursor->copy()->startOfMonth()->startOfDay();
-            $half1End   = $cursor->copy()->day(15)->endOfDay();
-            if ($start->lte($half1End) && $end->gte($half1Start)) {
-                $out[] = [
-                    'date'  => $half1End->toDateString(),
-                    // ⬇️ label dibentuk manual
-                    'label' => '01–15 ' . $half1Start->format('M Y'),
-                ];
-            }
-
-            // 16–Akhir
             $half2Start = $cursor->copy()->day(16)->startOfDay();
             $half2End   = $cursor->copy()->endOfMonth()->endOfDay();
             if ($start->lte($half2End) && $end->gte($half2Start)) {
                 $out[] = [
-                    'date'  => $half2End->toDateString(),
-                    // ⬇️ label dibentuk manual
+                   'date'  => $half2End->toDateString(),
+                   'date'  => $half2Start->toDateString(), // tag di tgl 16
                     'label' => '16–Akhir ' . $half2Start->format('M Y'),
                 ];
             }
@@ -742,12 +805,46 @@ class SlipGajiHitung extends Page
 
         return $out;
     }
-
-    private function hydrateKasbonFromSlipPayments(): bool
+    private function firstKasbonBoundaryForLoan(\Carbon\Carbon $loanDate): \Carbon\Carbon
     {
-        if (!$this->editingGajiId) return false;
+        return $loanDate->day <= 15
+            ? $loanDate->copy()->day(16)->startOfDay()
+            : $loanDate->copy()->addMonthNoOverflow()->day(16)->startOfDay();
+    }
 
-        $pays = KasbonPayment::where('slip_gaji_id', $this->editingGajiId)->get();
+
+    private function hydrateKasbonFromSlipPayments(?int $gajiId = null): bool
+    {
+        $id = $gajiId ?? $this->editingGajiId;
+        if (!$id) return false;
+
+        $pays = KasbonPayment::where('slip_gaji_id', $id)->get();
+        if ($pays->isEmpty()) {
+            $slots = $this->overlapsSecondHalf()
+            ? collect($this->overlappedHalfBoundaries())
+                ->filter(fn($s) => str_starts_with($s['label'], '16–Akhir'))
+                ->values()
+                ->all()
+            : [];
+            $dates = collect($slots)->pluck('date')->unique()->values();
+            $loanKaryawanId = $this->loanKaryawanId();
+
+            if ($loanKaryawanId) {
+                $loanIds = \App\Models\KasbonLoan::where('karyawan_id', $loanKaryawanId)->pluck('id');
+                $fallback = KasbonPayment::whereIn('kasbon_loan_id', $loanIds)
+                    ->whereNull('slip_gaji_id')
+                    ->whereIn('tanggal', $dates)
+                    ->where('sumber', 'slip')
+                    ->get();
+
+                if ($fallback->isNotEmpty()) {
+                    KasbonPayment::whereIn('id', $fallback->pluck('id'))
+                        ->update(['slip_gaji_id' => $id]);
+                    $pays = $fallback;
+                }
+            }
+        }
+
         if ($pays->isEmpty()) return false;
 
         $this->kasbon_loans = [];
@@ -769,6 +866,11 @@ class SlipGajiHitung extends Page
             ];
         }
         return true;
+    }
+    private function loanKaryawanId(): ?int
+    {
+        $emp = \App\Models\Karyawan::where('id_karyawan', $this->karyawan_id)->first();
+        return $emp?->id;
     }
 
 }

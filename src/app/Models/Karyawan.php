@@ -15,7 +15,7 @@ class Karyawan extends Model
         'lokasi',
         'bagian',
         'jenis_proyek',
-        'gaji_perbulan',
+        'gaji_setengah_bulan',
         'gaji_lembur',
         'gaji_harian',
         'uang_makan_lembur_malam',

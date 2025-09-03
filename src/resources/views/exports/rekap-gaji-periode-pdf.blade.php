@@ -1,143 +1,132 @@
+{{-- resources/views/exports/rekap-gaji-periode-pdf.blade.php --}}
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Rekap Gaji Periode</title>
+    <style>
+        /* ==== COMPACT PORTRAIT ala Permata ==== */
+        @page { margin: 10px 12px; }
+        body { font-family: DejaVu Sans, sans-serif; font-size: 9px; color:#111; }
+        h2 { margin: 0 0 4px; font-size: 13px; }
+        .meta { margin-bottom: 6px; font-size:9px; color:#444; }
+
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th, td { border: 1px solid #777; padding: 2px 3px; line-height: 1.15; }
+        th { background: #f2f2f2; text-align: left; word-break: break-word; }
+
+        .num { text-align: right; }
+        .center { text-align: center; }
+        .nowrap { white-space: nowrap; }                   /* 1 baris */
+        .cut { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        .totals td { font-weight: 700; background: #fafafa; }
+        .small { font-size: 8px; color: #666; }
+    </style>
+</head>
+<body>
 @php
     use Carbon\Carbon;
 
     /** @var \App\Models\RekapGajiPeriod $rekap */
-    /** @var array $rows  (hasil HoRekapService::rekapPeriodeLaporan) */
+    /** @var array<int,array<string,mixed>> $rows */
+
+    // sanitizer (sama dengan template Permata)
+    if (!function_exists('__clean_utf8')) {
+        function __clean_utf8($v) {
+            if ($v === null) return '';
+            $s = (string) $v;
+            $s = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $s) ?? $s;
+            if (!mb_check_encoding($s, 'UTF-8')) {
+                $tmp = @mb_convert_encoding($s, 'UTF-8', 'UTF-8, ISO-8859-1, Windows-1252');
+                if ($tmp === false) $tmp = @iconv('UTF-8', 'UTF-8//IGNORE', $s);
+                $s = $tmp !== false ? $tmp : '';
+            }
+            $s = preg_replace('/[\x{10000}-\x{10FFFF}]/u', '', $s) ?? $s; // buang emoji
+            return $s;
+        }
+    }
+    if (!function_exists('__h')) {
+        function __h($v) { return htmlspecialchars(__clean_utf8($v), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', false); }
+    }
 
     $start  = $rekap->start_date instanceof Carbon ? $rekap->start_date : Carbon::parse($rekap->start_date);
     $end    = $rekap->end_date   instanceof Carbon ? $rekap->end_date   : Carbon::parse($rekap->end_date);
+    $periode = $start->format('d M Y').' – '.$end->format('d M Y');
     $rupiah = fn($v) => 'Rp ' . number_format((float) $v, 0, ',', '.');
 
-    $rows   = collect($rows ?? []);
-    $hasNon = $rows->contains(fn($r) =>
-        ($r['keterangan'] ?? '') === 'TOTAL CASH' ||
-        ( ($r['keterangan'] ?? '') === 'Gaji Harian' && (($r['jumlah'] ?? 0) > 0) )
-    );
+    $rows = collect($rows ?? []);
+    $isTotalRow = fn($r) => in_array($r['keterangan'] ?? '', ['TOTAL PAYROLL','TOTAL CASH','Grand Total'], true);
+
+    // total sederhana untuk footer (hanya baris non-total)
+    $sumJumlah = $rows->filter(fn($r) => !$isTotalRow($r))->sum(fn($r) => (float)($r['jumlah'] ?? 0));
+    $sumKaryawan = $rows->filter(fn($r) => !$isTotalRow($r))->sum(fn($r) => (int)($r['jumlah_karyawan'] ?? 0));
 @endphp
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="utf-8" />
-    <title>Rekap Gaji Periode</title>
-    <style>
-        /* ====== basic ====== */
-        * { font-family: DejaVu Sans, sans-serif; }
-        body { margin: 26px 28px; font-size: 11.5px; color: #111; }
-        h1 { margin: 0 0 8px; text-align: center; font-size: 16.5px; letter-spacing: .3px; }
-        .meta { width: 100%; margin-bottom: 12px; }
-        .meta td { vertical-align: top; font-size: 11px; color: #333; }
-        .meta .left { text-align: left; }
-        .meta .right { text-align: right; }
 
-        /* ====== summary cards ====== */
-        .cards { width: 100%; border-collapse: separate; border-spacing: 10px 10px; margin: 6px 0 12px; }
-        .card {
-            border: 0.8px solid #CFCFCF; padding: 10px 12px; border-radius: 4px;
-            height: 54px;
-        }
-        .card .label { font-size: 10.5px; color: #666; margin-bottom: 4px; }
-        .card .value { font-weight: 700; font-size: 13px; }
+<h2>REKAP GAJI PERIODE</h2>
+<div class="meta">
+    Periode: <strong>{!! __h($periode) !!}</strong>
+</div>
 
-        /* ====== table ====== */
-        table.grid { width: 100%; border-collapse: collapse; }
-        col.no   { width: 44px; }
-        col.ket  { width: auto; }
-        col.lok  { width: 120px; }
-        col.prj  { width: 170px; }
-        col.jml  { width: 130px; }
-        col.org  { width: 120px; }
-        col.trf  { width: 86px; }
+<table>
+    <colgroup>
+        <col style="width:18px">   {{-- No --}}
+        <col style="width:42px">   {{-- No ID --}}
+        <col style="width:auto">   {{-- Keterangan --}}
+        <col style="width:72px">   {{-- Lokasi --}}
+        <col style="width:92px">   {{-- Proyek --}}
+        <col style="width:92px">   {{-- Jumlah --}}
+        <col style="width:84px">   {{-- Jumlah Karyawan --}}
+        <col style="width:50px">   {{-- TRF --}}
+    </colgroup>
 
-        th, td { border: 0.7px solid #DADADA; padding: 7px 8px; vertical-align: middle; }
-        th { background: #F4F6F8; color: #333; font-weight: 700; }
-        td.right { text-align: right; }
-        td.center { text-align: center; }
-
-        /* baris total */
-        .row-total td {
-            background: #FAFAFA;
-            font-weight: 700;
-            border-top-color: #BFBFBF;
-            border-bottom-color: #BFBFBF;
-        }
-
-        /* garis penutup terakhir lebih tegas */
-        .last td { border-bottom-color: #AFAFAF; }
-
-        /* kecilkan spasi sebelum tabel */
-        .mt-8 { margin-top: 8px; }
-    </style>
-</head>
-<body>
-    <h1>REKAP GAJI PERIODE</h1>
-
-    <table class="meta">
+    <thead>
         <tr>
-            <td class="left">Periode: <strong>{{ $start->format('d M Y') }} — {{ $end->format('d M Y') }}</strong></td>
-            <td class="right">
-                Dibuat oleh: <strong>{{ optional($rekap->user)->name ?? '—' }}</strong>
-            </td>
+            <th class="nowrap">No</th>
+            <th class="nowrap">No ID</th>
+            <th class="nowrap">Keterangan</th>
+            <th class="nowrap">Lokasi</th>
+            <th class="nowrap">Proyek</th>
+            <th class="num nowrap">Jumlah</th>
+            <th class="num nowrap">Jml Karyawan</th>
+            <th class="nowrap">TRF</th>
         </tr>
-    </table>
+    </thead>
 
-    {{-- Summary 2×2 --}}
-    <table class="cards">
-        <tr>
-            <td class="card">
-                <div class="label">Total Payroll</div>
-                <div class="value">{{ $rupiah($rekap->total_payroll ?? 0) }}</div>
-            </td>
-            <td class="card">
-                <div class="label">Total Non Payroll</div>
-                <div class="value">{{ $hasNon ? $rupiah($rekap->total_non_payroll ?? 0) : $rupiah(0) }}</div>
-            </td>
-        </tr>
-        <tr>
-            <td class="card">
-                <div class="label">Grand Total</div>
-                <div class="value">{{ $rupiah($rekap->total_grand ?? 0) }}</div>
-            </td>
-            <td class="card">
-                <div class="label">Total Karyawan</div>
-                <div class="value">{{ (int) ($rekap->count_grand ?? 0) }}</div>
-            </td>
-        </tr>
-    </table>
-
-    {{-- Tabel utama --}}
-    <table class="grid mt-8">
-        <colgroup>
-            <col class="no"><col class="ket"><col class="lok"><col class="prj">
-            <col class="jml"><col class="org"><col class="trf">
-        </colgroup>
-        <thead>
-            <tr>
-                <th class="center">No ID</th>
-                <th>Keterangan</th>
-                <th>Lokasi</th>
-                <th>Proyek</th>
-                <th class="right">Jumlah</th>
-                <th class="right">Jumlah Karyawan</th>
-                <th>TRF</th>
+    <tbody>
+        @forelse ($rows as $i => $r)
+            @php $totalRow = $isTotalRow($r); @endphp
+            <tr class="{{ $totalRow ? 'totals' : '' }}">
+                <td class="nowrap center">{{ $totalRow ? '' : $i + 1 }}</td>
+                <td class="nowrap">{!! __h($r['no_id'] ?? '') !!}</td>
+                <td class="cut">{!! __h($r['keterangan'] ?? '') !!}</td>
+                <td class="cut">{!! __h($r['lokasi'] ?? '') !!}</td>
+                <td class="cut">{!! __h(($r['proyek'] ?? '') ?: 'Tanpa Proyek') !!}</td>
+                <td class="num nowrap">{{ $rupiah($r['jumlah'] ?? 0) }}</td>
+                <td class="num nowrap">{{ (int) ($r['jumlah_karyawan'] ?? 0) }}</td>
+                <td class="nowrap">{!! __h($r['trf'] ?? '') !!}</td>
             </tr>
-        </thead>
-        <tbody>
-            @foreach ($rows as $i => $r)
-                @php
-                    $isTotal = in_array($r['keterangan'] ?? '', ['TOTAL PAYROLL','TOTAL CASH','Grand Total'], true);
-                    $classes = trim(($isTotal ? 'row-total ' : '') . ($i === count($rows)-1 ? 'last' : ''));
-                @endphp
-                <tr class="{{ $classes }}">
-                    <td class="center">{{ $r['no_id'] ?? '' }}</td>
-                    <td>{{ $r['keterangan'] ?? '' }}</td>
-                    <td>{{ $r['lokasi'] ?? '' }}</td>
-                    <td>{{ ($r['proyek'] ?? '') ?: 'Tanpa Proyek' }}</td>
-                    <td class="right">{{ $rupiah($r['jumlah'] ?? 0) }}</td>
-                    <td class="right">{{ (int) ($r['jumlah_karyawan'] ?? 0) }}</td>
-                    <td>{{ $r['trf'] ?? '' }}</td>
-                </tr>
-            @endforeach
-        </tbody>
-    </table>
+        @empty
+            <tr>
+                <td colspan="8" style="text-align:center; padding:10px;">Tidak ada data pada periode ini.</td>
+            </tr>
+        @endforelse
+    </tbody>
+
+    @if ($rows->isNotEmpty())
+    <tfoot>
+        <tr class="totals">
+            <td colspan="5" class="num nowrap">TOTAL</td>
+            <td class="num nowrap">{{ $rupiah($sumJumlah) }}</td>
+            <td class="num nowrap">{{ (int) $sumKaryawan }}</td>
+            <td></td>
+        </tr>
+    </tfoot>
+    @endif
+</table>
+
+<div class="small" style="margin-top:6px;">
+    Dicetak: {{ now()->format('d M Y H:i') }}
+</div>
 </body>
 </html>

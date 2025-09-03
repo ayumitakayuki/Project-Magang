@@ -29,6 +29,10 @@ class HistoriRekapAbsensi extends Page implements HasTable
     {
         return 'Absensi';
     }
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     protected function getTableQuery(): Builder
     {

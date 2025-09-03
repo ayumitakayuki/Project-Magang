@@ -123,7 +123,7 @@
 
         {{-- 5) Histori Non Payroll --}}
         <a
-            href="{{ \App\Filament\Admin\Pages\HistoriNonPayroll::getUrl() }}"
+            href="{{ \App\Filament\Admin\Pages\HistoriRekapGajiNonPayroll::getUrl() }}"
             class="group block relative min-h-[220px] md:min-h-[320px]
                 rounded-[22px] md:rounded-[28px] overflow-hidden
                 ring-1 ring-gray-200/70 shadow-sm

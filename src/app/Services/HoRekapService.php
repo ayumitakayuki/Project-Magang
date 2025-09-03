@@ -127,7 +127,7 @@ class HoRekapService
         }
         return array_values($rows);
     }
-    public function distinctPairs(string $start, string $end): array
+    public function distinctPairs(?string $start = null, ?string $end = null): array
     {
         return $this->slipQuery($start, $end)
             ->get(['lokasi', 'jenis_proyek'])
@@ -140,7 +140,6 @@ class HoRekapService
             ->values()
             ->all();
     }
-
     /**
      * Rekap gaji per periode: fokus lokasi–proyek
      * @param array<int,array{lokasi:string,proyek:string}>|null $pairs  daftar filter pasangan (opsional)
@@ -203,20 +202,20 @@ class HoRekapService
 
         return $rows;
     }
-    public function rekapNonPayroll(string $start, string $end, ?string $lokasi = null, ?string $proyek = null): array
+    public function rekapNonPayroll(?string $start = null, ?string $end = null, ?string $lokasi = null, ?string $proyek = null): array
     {
         $rows = [];
         $slips = $this->slipQuery($start, $end, $lokasi, $proyek, 'non-payroll')->get();
 
         foreach ($slips as $g) {
-            $sub   = optional($g->details->where('kode', 'jml')->first())->total ?? 0;
-            $kasbon= optional($g->details->where('kode', 'h')->first())->total ?? 0;
-            $grand = optional($g->details->where('kode', 'grand')->first())->total ?? ($sub - $kasbon);
+            $sub    = optional($g->details->where('kode', 'jml')->first())->total ?? 0;
+            $kasbon = optional($g->details->where('kode', 'h')->first())->total ?? 0;
+            $grand  = optional($g->details->where('kode', 'grand')->first())->total ?? ($sub - $kasbon);
 
-            $r = $this->roundTo((float)$grand);
+            $r = $this->roundTo((float) $grand);
             $pembulatan = $r['pembulatan'];
 
-            $sisaKasbon = KasbonLoan::query()
+            $sisaKasbon = \App\Models\KasbonLoan::query()
                 ->where('karyawan_id', $g->id_karyawan)
                 ->sum('sisa_saldo');
 
@@ -230,6 +229,7 @@ class HoRekapService
                 'nama'        => $g->nama,
                 'bagian'      => $g->status,
                 'project'     => $g->jenis_proyek,
+                'lokasi'      => $g->lokasi,
             ];
         }
 
@@ -289,7 +289,7 @@ class HoRekapService
             return $header;
         });
     }
-    public function rekapPeriodeLaporan(string $start, string $end, ?array $pairs = null): array
+    public function rekapPeriodeLaporan(?string $start = null, ?string $end = null, ?array $pairs = null): array
     {
         // 1) Seed pasangan dari pilihan / periode
         if (empty($pairs)) $pairs = $this->distinctPairs($start, $end);

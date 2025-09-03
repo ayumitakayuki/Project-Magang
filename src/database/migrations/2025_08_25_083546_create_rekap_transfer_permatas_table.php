@@ -12,6 +12,7 @@ return new class extends Migration {
             $table->string('bank')->default('PERMATA');
             $table->date('period_start')->index();
             $table->date('period_end')->index();
+            $table->string('range_type', 10)->nullable()->index();
             $table->string('lokasi')->nullable()->index();
             $table->string('proyek')->nullable()->index();
             $table->unsignedInteger('rows_count')->default(0);

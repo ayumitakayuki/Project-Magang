@@ -1,25 +1,17 @@
 <x-filament::page>
-    {{-- Banner Mode Edit (tanpa tombol keluar) --}}
-    @if ($this->isEditing ?? false)
-        <div class="mb-4 rounded-lg border border-yellow-300 bg-yellow-50 text-yellow-900 p-3">
-            <div class="flex items-center gap-2">
-                <x-heroicon-o-exclamation-triangle class="h-5 w-5" />
-                <span class="font-semibold">Mode Edit:</span>
-                <span>Anda sedang mengedit rekap gaji yang sudah pernah disimpan.</span>
-            </div>
-            <div class="mt-1 text-sm">
-                Periode:
-                {{ \Carbon\Carbon::parse($this->filters['start_date'])->format('d M Y') }}
-                —
-                {{ \Carbon\Carbon::parse($this->filters['end_date'])->format('d M Y') }}
-                (ID: {{ $this->editingId }})
-            </div>
-        </div>
-    @endif
-
     <x-filament::section class="mb-6">
         {{ $this->form }}
     </x-filament::section>
+
+    @php
+        $s = $this->filters['start_date'] ? \Carbon\Carbon::parse($this->filters['start_date']) : null;
+        $e = $this->filters['end_date']   ? \Carbon\Carbon::parse($this->filters['end_date'])   : null;
+        $labelPeriode = $s && $e ? $s->format('d M Y').' – '.$e->format('d M Y') : 'Semua periode';
+    @endphp
+
+    <div class="px-4 py-2 mb-3 text-sm text-gray-700 bg-gray-50 border rounded-lg">
+        <span class="font-medium">Periode:</span> {{ $labelPeriode }}
+    </div>
 
     <div class="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         <table class="min-w-[900px] w-full text-sm">
@@ -34,6 +26,7 @@
                     <th class="px-4 py-3 font-semibold">TRF</th>
                 </tr>
             </thead>
+
             <tbody class="divide-y divide-gray-100">
                 @forelse ($rows as $r)
                     @php
@@ -55,11 +48,19 @@
                 @empty
                     <tr>
                         <td colspan="7" class="px-4 py-8 text-center text-gray-500">
-                            Tidak ada data untuk periode ini.
+                            {{ ($this->filters['start_date'] && $this->filters['end_date'])
+                                ? 'Tidak ada data pada periode ini.'
+                                : 'Belum ada data.' }}
                         </td>
                     </tr>
                 @endforelse
             </tbody>
         </table>
+
+        <div class="mb-3 flex justify-end">
+            <x-filament::button type="button" icon="heroicon-o-document-arrow-down" wire:click="exportPdf">
+                Download PDF
+            </x-filament::button>
+        </div>
     </div>
 </x-filament::page>

@@ -72,8 +72,8 @@ class KaryawanResource extends Resource
             ->visible(fn ($get) => $get('lokasi') === 'proyek')
             ->required(fn ($get) => $get('lokasi') === 'proyek'),
 
-            TextInput::make('gaji_perbulan')
-                ->label('Gaji Per Bulan')
+            TextInput::make('gaji_setengah_bulan')
+                ->label('Gaji Setengah Bulan')
                 ->numeric(),
 
             TextInput::make('gaji_lembur')
@@ -169,8 +169,8 @@ class KaryawanResource extends Resource
                         return $val && $val !== '' ? $val : '-';
                     }),
 
-                TextColumn::make('gaji_perbulan')
-                    ->label('Gaji Per Bulan')
+                TextColumn::make('gaji_setengah_bulan')
+                    ->label('Gaji Setengah Bulan')
                     ->formatStateUsing(fn ($state) => number_format($state, 0, ',', '.')),
 
                 TextColumn::make('gaji_lembur')

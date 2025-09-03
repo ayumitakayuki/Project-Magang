@@ -67,7 +67,7 @@
             <thead class="bg-gray-50">
                 <tr class="text-left text-gray-700">
                     <th class="px-4 py-3 font-semibold">No</th>
-                    <th class="px-4 py-3 font-semibold">No ID</th>
+                    <th class="px-4 py-3 font-semibold">No ID / Kode</th>
                     <th class="px-4 py-3 font-semibold">Bagian</th>
                     <th class="px-4 py-3 font-semibold">Lokasi</th>
                     <th class="px-4 py-3 font-semibold">Proyek</th>
@@ -90,10 +90,10 @@
                 @forelse ($rows as $i => $r)
                     <tr class="odd:bg-white even:bg-gray-50/50">
                         <td class="px-4 py-2.5">{{ $i + 1 }}</td>
-                        <td class="px-4 py-2.5">{{ $r['no_id'] ?? '' }}</td>
+                        <td class="px-4 py-2.5">{{ $r['id_karyawan'] ?? ($r['no_id'] ?? '') }}</td>
                         <td class="px-4 py-2.5">{{ $r['bagian'] ?? '' }}</td>
                         <td class="px-4 py-2.5">{{ $r['lokasi'] ?? '' }}</td>
-                        <td class="px-4 py-2.5">{{ $r['project'] ?? '' }}</td>
+                        <td class="px-4 py-2.5">{{ $r['project'] ?? ($r['proyek'] ?? '') }}</td>
                         <td class="px-4 py-2.5">{{ $r['nama'] ?? '' }}</td>
                         <td class="px-4 py-2.5 text-right">Rp {{ number_format($r['pembulatan'] ?? 0, 0, ',', '.') }}</td>
                         <td class="px-4 py-2.5 text-right">Rp {{ number_format($r['kasbon'] ?? 0, 0, ',', '.') }}</td>

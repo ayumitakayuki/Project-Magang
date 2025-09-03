@@ -10,9 +10,6 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms;
-use App\Exports\RekapTransferPermataExport;
-use Filament\Notifications\Notification;
-
 
 class HistoriTransferPermata extends Page implements HasTable
 {
@@ -28,16 +25,32 @@ class HistoriTransferPermata extends Page implements HasTable
     {
         return 'histori-transfer-permata';
     }
-
-    /** TABLE */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
     protected function getTableQuery(): Builder
     {
-        return RekapTransferPermata::query()->latest('period_start');
+        return \App\Models\RekapTransferPermata::query()
+            ->latest('period_start')
+            ->withCount(['rows as calc_rows_count'])
+            ->withSum('rows as calc_total_pembulatan',  'pembulatan')
+            ->withSum('rows as calc_total_kasbon',      'kasbon')
+            ->withSum('rows as calc_total_sisa_kasbon', 'sisa_kasbon')
+            ->withSum('rows as calc_total_gaji_16_31',  'gaji_16_31')
+            ->withSum('rows as calc_total_gaji_15_31',  'gaji_15_31')
+            ->withSum('rows as calc_total_transfer',    'transfer');
     }
-
     protected function getTableColumns(): array
     {
         $idr = fn ($v) => 'Rp ' . number_format((float) $v, 0, ',', '.');
+
+        // helper: gunakan nilai header kalau >0, kalau tidak pakai kalkulasi relasi
+        $use = function ($primary, $fallback) {
+            $p = (int) ($primary ?? 0);
+            $f = (int) ($fallback ?? 0);
+            return $p !== 0 ? $p : $f;
+        };
 
         return [
             Tables\Columns\TextColumn::make('bank')
@@ -46,39 +59,54 @@ class HistoriTransferPermata extends Page implements HasTable
             Tables\Columns\TextColumn::make('period_start')
                 ->label('Periode')
                 ->getStateUsing(fn ($record) =>
-                    \Carbon\Carbon::parse($record->period_start)->format('d M Y') . ' - ' .
-                    \Carbon\Carbon::parse($record->period_end)->format('d M Y')
+                    Carbon::parse($record->period_start)->format('d M Y') . ' - ' .
+                    Carbon::parse($record->period_end)->format('d M Y')
                 )
                 ->sortable(),
 
-            // Tables\Columns\TextColumn::make('lokasi')->label('Lokasi')->default('-'),
-            // Tables\Columns\TextColumn::make('proyek')->label('Proyek')->default('-'),
-            Tables\Columns\TextColumn::make('rows_count')->label('Baris')->alignCenter()->sortable(),
+            Tables\Columns\TextColumn::make('rows_count')
+                ->label('Baris')
+                ->alignCenter()
+                ->getStateUsing(fn ($record) =>
+                    (int) ($record->rows_count ?? 0) ?: (int) ($record->calc_rows_count ?? 0)
+                )
+                ->sortable(),
 
-            // pakai $state untuk format rupiah
             Tables\Columns\TextColumn::make('total_pembulatan')
                 ->label('Pembulatan')->alignRight()
-                ->formatStateUsing(fn ($state) => $idr($state)),
+                ->formatStateUsing(fn ($state, $record) =>
+                    $idr(($thisUse = (int) ($state ?? 0)) !== 0 ? $thisUse : (int) ($record->calc_total_pembulatan ?? 0))
+                ),
 
             Tables\Columns\TextColumn::make('total_kasbon')
                 ->label('Kasbon')->alignRight()
-                ->formatStateUsing(fn ($state) => $idr($state)),
+                ->formatStateUsing(fn ($state, $record) =>
+                    $idr((int) ($state ?? 0) ?: (int) ($record->calc_total_kasbon ?? 0))
+                ),
 
             Tables\Columns\TextColumn::make('total_sisa_kasbon')
                 ->label('Sisa Kasbon')->alignRight()
-                ->formatStateUsing(fn ($state) => $idr($state)),
+                ->formatStateUsing(fn ($state, $record) =>
+                    $idr((int) ($state ?? 0) ?: (int) ($record->calc_total_sisa_kasbon ?? 0))
+                ),
 
             Tables\Columns\TextColumn::make('total_gaji_16_31')
                 ->label('Gaji 16–31')->alignRight()
-                ->formatStateUsing(fn ($state) => $idr($state)),
+                ->formatStateUsing(fn ($state, $record) =>
+                    $idr((int) ($state ?? 0) ?: (int) ($record->calc_total_gaji_16_31 ?? 0))
+                ),
 
             Tables\Columns\TextColumn::make('total_gaji_15_31')
                 ->label('Gaji 01–15')->alignRight()
-                ->formatStateUsing(fn ($state) => $idr($state)),
+                ->formatStateUsing(fn ($state, $record) =>
+                    $idr((int) ($state ?? 0) ?: (int) ($record->calc_total_gaji_15_31 ?? 0))
+                ),
 
             Tables\Columns\TextColumn::make('total_transfer')
                 ->label('Total Transfer')->alignRight()
-                ->formatStateUsing(fn ($state) => $idr($state)),
+                ->formatStateUsing(fn ($state, $record) =>
+                    $idr((int) ($state ?? 0) ?: (int) ($record->calc_total_transfer ?? 0))
+                ),
         ];
     }
 
@@ -92,15 +120,16 @@ class HistoriTransferPermata extends Page implements HasTable
                 ])
                 ->query(function (Builder $q, array $data) {
                     return $q
-                        ->when($data['from'] ?? null, fn ($qq, $from) => 
+                        ->when($data['from'] ?? null, fn ($qq, $from) =>
                             $qq->whereDate('period_end', '>=', $from)
                         )
-                        ->when($data['to'] ?? null, fn ($qq, $to) => 
+                        ->when($data['to'] ?? null, fn ($qq, $to) =>
                             $qq->whereDate('period_start', '<=', $to)
                         );
                 }),
         ];
     }
+
     protected function getTableActions(): array
     {
         return [
@@ -108,8 +137,8 @@ class HistoriTransferPermata extends Page implements HasTable
                 ->label('Buka Rekap')
                 ->icon('heroicon-o-arrow-top-right-on-square')
                 ->url(fn ($record) => route('filament.admin.pages.rekap-transfer-permata', [
-                    'start_date' => \Carbon\Carbon::parse($record->period_start)->format('Y-m-d'),
-                    'end_date'   => \Carbon\Carbon::parse($record->period_end)->format('Y-m-d'),
+                    'start_date' => Carbon::parse($record->period_start)->format('Y-m-d'),
+                    'end_date'   => Carbon::parse($record->period_end)->format('Y-m-d'),
                 ]))
                 ->openUrlInNewTab(),
 
@@ -118,16 +147,8 @@ class HistoriTransferPermata extends Page implements HasTable
                 ->icon('heroicon-o-arrow-path')
                 ->color('gray')
                 ->action(function (RekapTransferPermata $record) {
-                    $agg = $record->rows()->selectRaw("
-                        COUNT(*) as rows_count,
-                        COALESCE(SUM(pembulatan),0)    as total_pembulatan,
-                        COALESCE(SUM(kasbon),0)        as total_kasbon,
-                        COALESCE(SUM(sisa_kasbon),0)   as total_sisa_kasbon,
-                        COALESCE(SUM(gaji_16_31),0)    as total_gaji_16_31,
-                        COALESCE(SUM(gaji_15_31),0)    as total_gaji_15_31,
-                        COALESCE(SUM(transfer),0)      as total_transfer
-                    ")->first();
-                    $record->update($agg->toArray());
+                    // panggil helper di model agar konsisten
+                    $record->refreshTotals();
                 }),
 
             Tables\Actions\DeleteAction::make(),
@@ -140,5 +161,4 @@ class HistoriTransferPermata extends Page implements HasTable
             Tables\Actions\DeleteBulkAction::make(),
         ];
     }
-
 }

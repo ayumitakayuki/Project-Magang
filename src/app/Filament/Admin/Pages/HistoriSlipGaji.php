@@ -29,6 +29,10 @@ class HistoriSlipGaji extends Page implements HasTable
     {
         return 'Penggajian';
     }
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     protected function getTableQuery(): Builder
     {
