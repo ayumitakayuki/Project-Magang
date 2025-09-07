@@ -7,9 +7,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Karyawan extends Model
 {
-    // ✅ Tambahkan properti fillable
+    // IKUT MIGRATION: PK = 'id' (default), BUKAN 'id_karyawan'
+    // Hapus: protected $primaryKey = 'id_karyawan';
+
     protected $fillable = [
-        'id_karyawan',
+        'id_karyawan', // tetap boleh simpan kode "KR-..." sebagai identifier bisnis
         'nama',
         'status',
         'lokasi',
@@ -31,7 +33,9 @@ class Karyawan extends Model
 
     public function absensis(): HasMany
     {
-        return $this->hasMany(Absensi::class, 'name', 'nama');
+        // kalau tabel absensis punya fk karyawan_id numerik, pakai ini:
+        return $this->hasMany(Absensi::class, 'karyawan_id', 'id');
+        // kalau memang belum ada kolom itu dan masih lewat 'nama', biarkan sesuai skema tabelmu
     }
 
     protected static function booted()
@@ -42,6 +46,7 @@ class Karyawan extends Model
             }
         });
     }
+
     public function setJenisProyekAttribute($value)
     {
         $this->attributes['jenis_proyek'] = is_string($value) ? trim($value) : $value;
@@ -51,5 +56,11 @@ class Karyawan extends Model
     {
         $v = is_string($value) ? strtolower(trim($value)) : $value;
         $this->attributes['lokasi'] = in_array($v, ['workshop','proyek'], true) ? $v : null;
+    }
+
+    public function rekaps()
+    {
+        // IKUT MIGRATION: fk = absensi_rekaps.karyawan_id (bigint) -> karyawans.id (bigint)
+        return $this->hasMany(AbsensiRekap::class, 'karyawan_id', 'id');
     }
 }

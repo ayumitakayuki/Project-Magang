@@ -7,13 +7,14 @@ use Illuminate\Database\Eloquent\Model;
 class KasbonPayment extends Model
 {
     protected $fillable = [
-        'kasbon_loan_id',
-        'tanggal',
-        'nominal',
-        'sumber',
-        'slip_gaji_id',
-        'periode_label',
-        'catatan',
+        'kasbon_loan_id','tanggal',
+        'periode_awal','periode_akhir','periode_label',
+        'nominal','sumber','slip_gaji_id','catatan',
+    ];
+    protected $casts = [
+        'tanggal'       => 'date',
+        'periode_awal'  => 'date',
+        'periode_akhir' => 'date',
     ];
     protected $guarded = []; 
     // 🔧 TEGASKAN foreign key-nya agar tidak pernah mencoba pakai "loan_id"

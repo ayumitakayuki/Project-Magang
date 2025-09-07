@@ -360,25 +360,40 @@
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Jenis Item</label>
                                     <div class="relative overflow-visible z-50">
                                         <select
-                                            x-model="formData.type"
-                                            @change="
-                                                formData.nominal_lembur = karyawanNominals[formData.type] || 0;
-                                                $wire.newItem.nominal_lembur = formData.nominal_lembur;
-                                                $wire.newItem.type = formData.type;
-                                                calculateTotal();
-                                            "
-                                            wire:model="newItem.type"
-                                            class="w-full rounded-md border-gray-300 shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500 relative z-50 bg-white">
-                                            <option value="">Pilih Item...</option>
-                                            <optgroup label="Uang Makan">
-                                                <option value="uang_makan_lembur_malam">Uang Makan Lembur Malam</option>
-                                                <option value="uang_makan_lembur_jalan">Uang Makan Lembur Jalan</option>
-                                            </optgroup>
-                                            <optgroup label="Potongan">
-                                                <option value="bpjs_kesehatan">Potongan BPJS Kesehatan</option>
-                                                <option value="bpjs_tk">Potongan BPJS TK</option>
-                                                <option value="bpjs_gabungan">Potongan BPJS Kesehatan + TK</option>
-                                            </optgroup>
+                                        x-model="formData.type"
+                                        @change="
+                                            formData.nominal_lembur = karyawanNominals[formData.type] || 0;
+
+                                            // default khusus Perizinan (Perjam)
+                                            if (formData.type === 'perizinan_jam') {
+                                            formData.nominal_lembur = @js((float)($gaji_data['potongan_tidak_masuk_nominal'] ?? 0));
+                                            formData.faktor = formData.faktor || 1;
+                                            }
+
+                                            $wire.newItem.type = formData.type;
+                                            $wire.newItem.nominal_lembur = formData.nominal_lembur;
+                                            $wire.newItem.faktor = formData.faktor || 1;
+                                            calculateTotal();
+                                        "
+                                        wire:model="newItem.type"
+                                        class="w-full rounded-md border-gray-300 shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500 relative z-50 bg-white">
+                                        <option value="">Pilih Item...</option>
+
+                                        <optgroup label="Uang Makan">
+                                            <option value="uang_makan_lembur_malam">Uang Makan Lembur Malam</option>
+                                            <option value="uang_makan_lembur_jalan">Uang Makan Lembur Jalan</option>
+                                        </optgroup>
+
+                                        <optgroup label="Potongan">
+                                            <option value="bpjs_kesehatan">Potongan BPJS Kesehatan</option>
+                                            <option value="bpjs_tk">Potongan BPJS TK</option>
+                                            <option value="bpjs_gabungan">Potongan BPJS Kesehatan + TK</option>
+                                        </optgroup>
+
+                                        <!-- NEW: hanya perjam -->
+                                        <optgroup label="Perizinan">
+                                            <option value="perizinan_jam">Potongan Perizinan (Perjam)</option>
+                                        </optgroup>
                                         </select>
                                     </div>
                                 </div>

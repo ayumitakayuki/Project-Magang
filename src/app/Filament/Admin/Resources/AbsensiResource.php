@@ -11,6 +11,9 @@ use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Forms;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\Filter;
+use Illuminate\Support\Arr;
+use App\Models\Karyawan;
 
 class AbsensiResource extends Resource
 {
@@ -78,31 +81,76 @@ class AbsensiResource extends Resource
                 TextColumn::make('pulang_lembur')->label('Pulang Lembur'),
             ])
             ->filters([
-                SelectFilter::make('status')
-                    ->label('Status Karyawan')
-                    ->options([
-                        'harian tetap' => 'Harian Tetap',
-                        'harian lepas' => 'Harian Lepas',
-                    ])
-                    ->relationship('karyawan', 'status'),
+    // Periode tanggal (manual)
+        Filter::make('periode_tanggal')
+            ->form([
+                Forms\Components\DatePicker::make('from')->label('Dari'),
+                Forms\Components\DatePicker::make('until')->label('Sampai'),
+            ])
+            ->query(function ($query, array $data) {
+                return $query
+                    ->when($data['from']  ?? null, fn ($q, $date) => $q->whereDate('tanggal', '>=', $date))
+                    ->when($data['until'] ?? null, fn ($q, $date) => $q->whereDate('tanggal', '<=', $date));
+            }),
 
-                SelectFilter::make('lokasi')
-                    ->label('Lokasi')
-                    ->options([
-                        'workshop' => 'Workshop',
-                        'proyek' => 'Proyek',
-                    ])
-                    ->relationship('karyawan', 'lokasi'),
-            ])
-            ->paginationPageOptions([5, 10, 25, 50, 100, 'all']) // Tambahkan ini
-            ->actions([
-                Tables\Actions\EditAction::make(),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
-            ]);
+            // Status karyawan (opsi ditarik dari DB karyawan)
+            SelectFilter::make('status')
+                ->label('Status Karyawan')
+                ->options(fn () => Karyawan::query()
+                    ->whereNotNull('status')
+                    ->distinct()
+                    ->orderBy('status')
+                    ->pluck('status', 'status')
+                    ->toArray()
+                )
+                ->relationship('karyawan', 'status'),
+
+            // Lokasi (opsi dari DB karyawan)
+            SelectFilter::make('lokasi')
+                ->label('Lokasi')
+                ->options(fn () => Karyawan::query()
+                    ->whereNotNull('lokasi')
+                    ->distinct()
+                    ->orderBy('lokasi')
+                    ->pluck('lokasi', 'lokasi')
+                    ->toArray()
+                )
+                ->relationship('karyawan', 'lokasi'),
+
+            // Jenis Proyek (opsi dari DB karyawan.jenis_proyek), hanya hit untuk lokasi 'proyek'
+            SelectFilter::make('jenis_proyek')
+                ->label('Jenis Proyek')
+                ->options(fn () => Karyawan::query()
+                    ->where('lokasi', 'proyek')
+                    ->whereNotNull('jenis_proyek')
+                    ->distinct()
+                    ->orderBy('jenis_proyek')
+                    ->pluck('jenis_proyek', 'jenis_proyek')
+                    ->toArray()
+                )
+                ->multiple()
+                ->preload()
+                ->query(function ($query, $state) {
+                    // dukung struktur ['values'=>[...]] atau array langsung
+                    $values = Arr::wrap(data_get($state, 'values', $state));
+                    $values = array_values(array_filter(Arr::flatten($values), fn ($v) => filled($v)));
+                    if (empty($values)) return $query;
+
+                    return $query->whereHas('karyawan', function ($q) use ($values) {
+                        $q->where('lokasi', 'proyek')
+                        ->whereIn('jenis_proyek', $values);
+                    });
+                }),
+        ])
+        ->paginationPageOptions([5, 10, 25, 50, 100, 'all'])
+        ->actions([
+            Tables\Actions\EditAction::make(),
+        ])
+        ->bulkActions([
+            Tables\Actions\BulkActionGroup::make([
+                Tables\Actions\DeleteBulkAction::make(),
+            ]),
+        ]);
     }
 
     public static function getRelations(): array

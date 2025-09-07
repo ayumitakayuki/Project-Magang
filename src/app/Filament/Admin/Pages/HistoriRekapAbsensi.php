@@ -38,14 +38,41 @@ class HistoriRekapAbsensi extends Page implements HasTable
     {
         return AbsensiRekap::query()
             ->with('karyawan')
+            ->orderBy('karyawan_id', 'asc')
             ->latest('periode_awal');
     }
 
     protected function getTableColumns(): array
     {
-        return [
-            Tables\Columns\TextColumn::make('karyawan_id')->label('ID Karyawan')->sortable()->searchable(),
-            Tables\Columns\TextColumn::make('nama')->label('Nama')->sortable()->searchable(),
+        return [ 
+            Tables\Columns\TextColumn::make('karyawan.id_karyawan')
+                ->label('ID Karyawan')
+                ->placeholder('-')
+                ->searchable()
+                ->sortable(
+                    query: function (Builder $query, string $direction): Builder {
+                        return $query->orderBy(
+                            Karyawan::select('id_karyawan')
+                                ->whereColumn('karyawans.id', 'absensi_rekaps.karyawan_id'),
+                            $direction
+                        );
+                    }
+                ),
+
+            Tables\Columns\TextColumn::make('karyawan.nama')
+                ->label('Nama')
+                ->placeholder('-')
+                ->searchable()
+                ->sortable(
+                    query: function (Builder $query, string $direction): Builder {
+                        return $query->orderBy(
+                            Karyawan::select('nama')
+                                ->whereColumn('karyawans.id', 'absensi_rekaps.karyawan_id'),
+                            $direction
+                        );
+                    }
+                ),
+
             Tables\Columns\TextColumn::make('periode_awal')->label('Periode')
                 ->formatStateUsing(fn ($state, $record) =>
                     \Carbon\Carbon::parse($state)->format('d M') . ' - ' .
@@ -113,25 +140,43 @@ class HistoriRekapAbsensi extends Page implements HasTable
             SelectFilter::make('status')
                 ->label('Status')
                 ->options([
+                    'staff' => 'Staff',
+                    'harian tetap' => 'Harian Tetap',
                     'harian lepas' => 'Harian Lepas',
-                    'kontrak' => 'Kontrak',
-                    'tetap' => 'Tetap',
                 ])
-                ->searchable(),
+                ->searchable()
+                ->query(function (Builder $query, array $data) {
+                    if (!empty($data['value'])) {
+                        $query->whereHas('karyawan', fn ($k) => $k->where('status', $data['value']));
+                    }
+                }),
 
             SelectFilter::make('lokasi')
                 ->label('Lokasi')
-                ->options(
-                    Karyawan::query()->whereNotNull('lokasi')->distinct()->pluck('lokasi', 'lokasi')->toArray()
-                )
-                ->searchable(),
+                ->options(['workshop' => 'workshop', 'proyek' => 'proyek'])
+                ->searchable()
+                ->query(function (Builder $query, array $data) {
+                    if (!empty($data['value'])) {
+                        $query->whereHas('karyawan', fn ($k) => $k->where('lokasi', $data['value']));
+                    }
+                }),
 
             SelectFilter::make('jenis_proyek')
                 ->label('Proyek')
                 ->options(
-                    Karyawan::query()->whereNotNull('jenis_proyek')->distinct()->pluck('jenis_proyek', 'jenis_proyek')->toArray()
+                    Karyawan::query()
+                        ->whereNotNull('jenis_proyek')
+                        ->distinct()
+                        ->pluck('jenis_proyek', 'jenis_proyek')
+                        ->toArray()
                 )
-                ->searchable(),
+                ->searchable()
+                ->query(function (Builder $query, array $data) {
+                    if (!empty($data['value'])) {
+                        $query->whereHas('karyawan', fn ($k) => $k->where('jenis_proyek', $data['value']));
+                    }
+                }),
         ];
     }
+
 }

@@ -42,31 +42,35 @@ class KasbonPaymentResource extends Resource
                 }),
 
             Forms\Components\DatePicker::make('tanggal')
+                ->label('Tanggal')
                 ->required()
-                ->default(now())
-                ->reactive()
-                ->afterStateUpdated(function (Set $set, $state) {
-                    $d = $state ? Carbon::parse($state) : now();
-                    $label = $d->day <= 15
-                        ? '01–15 ' . $d->format('M Y')
-                        : '16–Akhir ' . $d->format('M Y');
-                    $set('periode_label', $label);
-                }),
+                ->default(now()),
 
-            Forms\Components\Select::make('periode_label')
-                ->label('Periode')
+            // Periode Awal (input bantu, tidak disimpan)
+            Forms\Components\DatePicker::make('periode_awal_tmp')
+                ->label('Periode Awal')
                 ->required()
+                ->dehydrated(false)   // <-- tidak disimpan ke DB
                 ->reactive()
-                ->options(function (Get $get) {
-                    $d = $get('tanggal') ? Carbon::parse($get('tanggal')) : now();
-                    $m = $d->copy()->startOfMonth();
-                    return [
-                        '01–15 '   . $m->format('M Y') => '01–15 '   . $m->format('M Y'),
-                        '16–Akhir ' . $m->format('M Y') => '16–Akhir ' . $m->format('M Y'),
-                    ];
-                })
-                ->native(false),
+                ->afterStateUpdated(fn ($state, \Filament\Forms\Set $set, \Filament\Forms\Get $get) =>
+                    \App\Filament\Admin\Resources\KasbonPaymentResource::syncPeriodeLabel($set, $get)
+                ),
 
+            // Periode Akhir (input bantu, tidak disimpan)
+            Forms\Components\DatePicker::make('periode_akhir_tmp')
+                ->label('Periode Akhir')
+                ->required()
+                ->dehydrated(false)   // <-- tidak disimpan ke DB
+                ->reactive()
+                ->minDate(fn (\Filament\Forms\Get $get) => $get('periode_awal_tmp'))
+                ->afterStateUpdated(fn ($state, \Filament\Forms\Set $set, \Filament\Forms\Get $get) =>
+                    \App\Filament\Admin\Resources\KasbonPaymentResource::syncPeriodeLabel($set, $get)
+                ),
+
+            Forms\Components\Hidden::make('periode_label')
+            ->dehydrated()
+            ->required(),
+            
             Forms\Components\TextInput::make('nominal')
                 ->label('Nominal Pembayaran')
                 ->numeric()
@@ -84,9 +88,10 @@ class KasbonPaymentResource extends Resource
                 }),
 
             Forms\Components\Select::make('sumber')
-                ->options(['slip' => 'Slip Gaji', 'manual' => 'Manual'])
-                ->default('manual')
-                ->required(),
+            ->label('Sumber')
+            ->options(['slip' => 'Slip Gaji', 'manual' => 'Manual'])
+            ->default('slip') // ← CHANGED: tadinya 'manual'
+            ->required(),
 
             Forms\Components\TextInput::make('catatan')
                 ->label('Catatan')
@@ -142,4 +147,17 @@ class KasbonPaymentResource extends Resource
     {
         return false;
     }
+    protected static function syncPeriodeLabel(\Filament\Forms\Set $set, \Filament\Forms\Get $get): void
+    {
+        $awal  = $get('periode_awal_tmp');
+        $akhir = $get('periode_akhir_tmp');
+
+        if ($awal && $akhir) {
+            $set('periode_label',
+                \Carbon\Carbon::parse($awal)->format('d M Y') . ' – ' .
+                \Carbon\Carbon::parse($akhir)->format('d M Y')
+            );
+        }
+    }
+
 }

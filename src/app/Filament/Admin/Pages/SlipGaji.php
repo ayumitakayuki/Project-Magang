@@ -29,7 +29,8 @@ class SlipGaji extends Page implements HasTable
     protected function getTableQuery(): Builder
     {
         return Karyawan::query()
-            ->whereIn('id_karyawan', AbsensiRekap::query()->pluck('karyawan_id'));
+            ->whereHas('rekaps')
+            ->orderBy('id', 'asc');
     }
 
     protected function getTableColumns(): array

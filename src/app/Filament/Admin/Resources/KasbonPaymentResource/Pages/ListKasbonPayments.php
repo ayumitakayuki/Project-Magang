@@ -3,8 +3,8 @@
 namespace App\Filament\Admin\Resources\KasbonPaymentResource\Pages;
 
 use App\Filament\Admin\Resources\KasbonPaymentResource;
-use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Actions;
 
 class ListKasbonPayments extends ListRecords
 {
@@ -13,7 +13,8 @@ class ListKasbonPayments extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+                ->label('Create'), // opsional: ubah label/icon
         ];
     }
 }

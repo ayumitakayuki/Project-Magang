@@ -235,7 +235,7 @@ class AbsensiRekapService
             $this->simpanRekapKeDatabase(
                 $nama,
                 $start_date,
-                $lastAbsensiDate,
+                $end_date,
                 $rekap['per_user'][$nama] ?? [],
                 $rekap['per_tanggal'][$nama] ?? []
             );
@@ -462,17 +462,17 @@ class AbsensiRekapService
             $rekap['per_user'][$nama]['total_jam'] = $totalJam;
             $rekap['per_user'][$nama]['jumlah_hari'] = $jumlahHari;
 
-            $tanggalTerakhir = collect($absensiTanggal ?? [])->keys()->sortDesc()->first();
-            $periodeAkhir = $tanggalTerakhir ?? $end;
+            // $tanggalTerakhir = collect($absensiTanggal ?? [])->keys()->sortDesc()->first();
+            // $periodeAkhir = $tanggalTerakhir ?? $end;
 
             $split = app(\App\Services\SisaJamSplitService::class)
-                        ->splitFromPerTanggal($rekap['per_tanggal'][$nama] ?? []);
+                ->splitFromPerTanggal($rekap['per_tanggal'][$nama] ?? []);
             $rekap['per_user'][$nama] = array_merge($rekap['per_user'][$nama], $split);
            
             $this->simpanRekapKeDatabase(
                 $nama,
                 $start,
-                $periodeAkhir,
+                $end,
                 $rekap['per_user'][$nama],
                 $rekap['per_tanggal'][$nama] ?? []
             );
@@ -655,14 +655,14 @@ class AbsensiRekapService
         }
         return $jumlahHari;
     }
+    
 
     public function simpanRekapKeDatabase(string $nama, string $start_date, string $end_date, array $rekapUser, array $rekapTanggal)
     {
-        $karyawan = \App\Models\Karyawan::where('nama', $nama)->first();
-
+        $karyawan = \App\Models\Karyawan::where('nama', $nama)->firstOrFail();
         AbsensiRekap::updateOrCreate(
             [
-                'karyawan_id'   => $karyawan->id_karyawan,
+                'karyawan_id'   => $karyawan->id, // sesuaikan dengan PK sebenarnya
                 'periode_awal'  => $start_date,
                 'periode_akhir' => $end_date,
             ],

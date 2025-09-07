@@ -12,6 +12,7 @@ use Livewire\Component;
 use Carbon\Carbon;
 use App\Models\KasbonLoan;
 use App\Models\KasbonPayment;
+use Illuminate\Support\Collection;
 
 class SlipGajiHitung extends Page
 {
@@ -147,11 +148,8 @@ class SlipGajiHitung extends Page
 
     public function addItem()
     {
-        // Pastikan data numerik valid
-        foreach (['masuk', 'faktor', 'nominal_lembur'] as $field) {
-            if (!is_numeric($this->newItem[$field])) {
-                $this->newItem[$field] = 0;
-            }
+        foreach (['masuk','faktor','nominal_lembur'] as $f) {
+            if (!is_numeric($this->newItem[$f])) $this->newItem[$f] = 0;
         }
 
         $this->validate([
@@ -161,53 +159,52 @@ class SlipGajiHitung extends Page
             'newItem.nominal_lembur' => 'required|numeric|min:0',
         ]);
 
-        $masuk = (float) $this->newItem['masuk'];
-        $faktor = (float) $this->newItem['faktor'];
+        $masuk   = (float) $this->newItem['masuk'];
+        $faktor  = (float) $this->newItem['faktor'];
         $nominal = (float) $this->newItem['nominal_lembur'];
-        $total = $masuk * $nominal;
 
-        $this->newItem['total'] = $total;
+        // ⬅️ perbaiki: total pakai faktor
+        $this->newItem['total'] = $masuk * $nominal * max(1, $faktor);
 
+        // ⬇️ TAMBAH tipe “Perizinan”
         $itemTypes = [
-            'uang_makan_lembur_malam' => ['keterangan' => 'Uang Makan Lembur Malam', 'no' => 'i'],
-            'uang_makan_lembur_jalan' => ['keterangan' => 'Uang Makan Lembur Jalan', 'no' => 'j'],
-            'bpjs_kesehatan' => ['keterangan' => 'Potongan BPJS Kesehatan', 'no' => 'k'],
-            'bpjs_tk' => ['keterangan' => 'Potongan BPJS TK', 'no' => 'l'],
-            'bpjs_gabungan' => ['keterangan' => 'Potongan BPJS Kesehatan + TK', 'no' => 'm']
+            'uang_makan_lembur_malam' => ['keterangan' => 'Uang Makan Lembur Malam',      'no' => 'i'],
+            'uang_makan_lembur_jalan' => ['keterangan' => 'Uang Makan Lembur Jalan',      'no' => 'j'],
+
+            'bpjs_kesehatan' => ['keterangan' => 'Potongan BPJS Kesehatan',               'no' => 'k'],
+            'bpjs_tk'        => ['keterangan' => 'Potongan BPJS TK',                      'no' => 'l'],
+            'bpjs_gabungan'  => ['keterangan' => 'Potongan BPJS Kesehatan + TK',          'no' => 'm'],
+
+            // NEW: Perizinan
+            'perizinan_jam'  => ['keterangan' => 'Potongan Perizinan (Perjam)',           'no' => 'n'],
+            'perizinan_hari' => ['keterangan' => 'Potongan Perizinan (Perhari)',          'no' => 'o'],
         ];
 
-        $type = $this->newItem['type'];
-        if (empty($type)) {
-            session()->flash('error', 'Silakan pilih jenis item');
+        $type = $this->newItem['type'] ?? '';
+        if (!$type || !isset($itemTypes[$type])) {
+            session()->flash('error', 'Silakan pilih jenis item yang valid');
             return;
         }
 
         $keterangan = $itemTypes[$type]['keterangan'];
-
         if (collect($this->additional_items)->contains('keterangan', $keterangan)) {
             session()->flash('error', 'Item ' . $keterangan . ' sudah ditambahkan');
             return;
         }
 
         $this->additional_items[] = [
-            'no' => $itemTypes[$type]['no'],
-            'keterangan' => $keterangan,
-            'masuk' => $this->newItem['masuk'],
-            'faktor' => $this->newItem['faktor'],
+            'no'             => $itemTypes[$type]['no'],
+            'keterangan'     => $keterangan,
+            'masuk'          => $this->newItem['masuk'],
+            'faktor'         => $this->newItem['faktor'],
             'nominal_lembur' => $this->newItem['nominal_lembur'],
-            'total' => $this->newItem['total'], 
-    ];
-
-        $this->newItem = [
-            'type' => '',
-            'masuk' => '',
-            'faktor' => '',
-            'nominal_lembur' => '',
-            'total' => '',
+            'total'          => $this->newItem['total'],
         ];
 
+        $this->newItem = ['type'=>'','masuk'=>'','faktor'=>'','nominal_lembur'=>'','total'=>''];
         $this->calculateGrandTotal();
     }
+
 
     public function deleteItem($index)
     {
@@ -259,10 +256,17 @@ class SlipGajiHitung extends Page
     public function updatedNewItemType($value)
     {
         $nominals = $this->gaji_data['nominals'] ?? [];
-
         $this->newItem['nominal_lembur'] = $nominals[$value] ?? 0;
+
+        if ($value === 'perizinan_jam') {
+            $this->newItem['nominal_lembur'] = (float)($this->gaji_data['potongan_tidak_masuk_nominal'] ?? 0);
+            $this->newItem['faktor'] = $this->newItem['faktor'] ?: 1;
+        }
+
         $this->recalculateTotal();
     }
+
+
 
     public function updatedNewItemMasuk()
     {
@@ -427,8 +431,23 @@ class SlipGajiHitung extends Page
             }
             $tglSlip = $halfEnd->toDateString();
 
-        // Hapus semua pembayaran yang memang dibuat oleh slip ini
-        KasbonPayment::where('slip_gaji_id', $gaji->id)->delete();
+        // tautkan payment YANG SUDAH ADA (belum tertaut) untuk periode ini
+        $awal  = \Carbon\Carbon::parse($this->start_date)->toDateString();
+        $akhir = \Carbon\Carbon::parse($this->end_date)->toDateString();
+        $empPk = $this->loanKaryawanId();
+
+        if ($empPk) {
+            KasbonPayment::query()
+                ->whereHas('loan', fn($q) => $q->where('karyawan_id', $empPk))
+                ->whereBetween('tanggal', [$awal, $akhir])
+                ->where('sumber','slip')
+                ->whereNull('slip_gaji_id')
+                ->update([
+                    'slip_gaji_id'  => $gaji->id,
+                    'periode_label' => $this->kasbonPeriodeLabel(),
+                ]);
+        }
+
 
         // $slots = $this->overlappedHalfBoundaries();
         foreach ($this->kasbon_loans as $row) {
@@ -450,17 +469,16 @@ class SlipGajiHitung extends Page
                 KasbonPayment::updateOrCreate(
                     [
                         'kasbon_loan_id' => $loanId,
-                        'slip_gaji_id'   => $gaji->id,
-                        'tanggal'        => $slot['date'],
+                        'tanggal'        => $slot['date'], // ← cocokkan ke data lama yang mungkin sudah ada (slip_gaji_id null)
                     ],
                     [
-                        'nominal'       => $pay,
-                        'sumber'        => 'slip',
-                        'periode_label' => $slot['label'],
-                        'catatan'       => 'Potongan otomatis dari slip gaji',
+                        'slip_gaji_id'   => $gaji->id,
+                        'nominal'        => $pay,
+                        'sumber'         => 'slip',
+                        'periode_label'  => $slot['label'],
+                        'catatan'        => 'Potongan otomatis dari slip gaji',
                     ]
                 );
-
                 $saldo -= $pay;
             }
         }
@@ -472,6 +490,32 @@ class SlipGajiHitung extends Page
             DB::rollBack();
             session()->flash('error', 'Gagal menyimpan slip gaji: ' . $e->getMessage());
         }
+    }
+
+// ...
+    private function fetchExistingKasbonPaymentsInRange(): Collection
+    {
+        if (!$this->karyawan_id || !$this->start_date || !$this->end_date) {
+            return collect();
+        }
+
+        $empPk = $this->loanKaryawanId(); // PK karyawan pada KasbonLoan
+        if (!$empPk) return collect();
+
+        $start = \Carbon\Carbon::parse($this->start_date)->toDateString();
+        $end   = \Carbon\Carbon::parse($this->end_date)->toDateString();
+
+        return \App\Models\KasbonPayment::query()
+            ->whereHas('loan', fn($q) => $q->where('karyawan_id', $empPk))
+            ->whereBetween('tanggal', [$start, $end])
+            ->where('sumber', 'slip')
+            ->when(
+                $this->editingGajiId,
+                fn($q) => $q->where(fn($qq) => $qq->whereNull('slip_gaji_id')->orWhere('slip_gaji_id', $this->editingGajiId)),
+                fn($q) => $q->whereNull('slip_gaji_id')
+            )
+            ->orderBy('tanggal')
+            ->get();
     }
 
     private function loadExistingGaji($id): void
@@ -643,13 +687,39 @@ class SlipGajiHitung extends Page
         $this->gaji_data['kasbon_faktor']  = 1;
         $this->gaji_data['kasbon_nominal'] = 0.0;
 
+        // 1) Coba tarik Payment yang SUDAH ADA di DB untuk periode ini
+        $existing = $this->fetchExistingKasbonPaymentsInRange();
+        if ($existing->isNotEmpty()) {
+            foreach ($existing as $p) {
+                $this->gaji_data['kasbon']         += (float)$p->nominal;
+                $this->gaji_data['kasbon_nominal'] += (float)$p->nominal;
+                $this->gaji_data['kasbon_masuk']   += 1;
+                $this->kasbon_loans[] = [
+                    'loan_id' => $p->kasbon_loan_id,
+                    'unit'    => (float)$p->nominal,
+                    'units'   => 1,
+                    'amount'  => (float)$p->nominal,
+                    'slots'   => [[
+                        'date'  => \Carbon\Carbon::parse($p->tanggal)->toDateString(),
+                        'label' => $p->periode_label ?? $this->kasbonPeriodeLabel(),
+                    ]],
+                ];
+            }
+            return; // sudah ketemu; tidak perlu hitung otomatis
+        }
+
+        // 2) Jika belum ada payment, baru pakai kalkulasi otomatis (logika kamu yang lama)
+        // --- kode kamu yang lama mulai dari sini, tidak diubah ---
+        $this->gaji_data['kasbon']         = 0.0;
+        $this->gaji_data['kasbon_masuk']   = 0;
+        $this->gaji_data['kasbon_faktor']  = 1;
+        $this->gaji_data['kasbon_nominal'] = 0.0;
+
         if (!$this->karyawan_id) return;
 
-        // pakai boundary sesuai pay-day
         $slots = $this->overlappedPaydayBoundaries();
         if (count($slots) === 0) return;
 
-        // pastikan ini PK karyawan (lihat diskusi sebelumnya)
         $loanKaryawanId = $this->loanKaryawanId() ?? $this->karyawan_id;
 
         $loans = \App\Models\KasbonLoan::query()
@@ -669,8 +739,6 @@ class SlipGajiHitung extends Page
             if ($saldo <= 0 || $unit <= 0 || $sisaX <= 0) continue;
 
             $first = $this->firstBoundaryAfterLoan(\Carbon\Carbon::parse($loan->tanggal));
-
-            // hanya slot pada/ setelah boundary pertama
             $eligible = array_values(array_filter(
                 $slots,
                 fn($s) => \Carbon\Carbon::parse($s['date'])->gte($first)
@@ -700,6 +768,7 @@ class SlipGajiHitung extends Page
         $this->gaji_data['kasbon_masuk']   = $unitsTotal;
         $this->gaji_data['kasbon_nominal'] = $total;
     }
+
 
     private function overlapsSecondHalf(): bool
     {
@@ -792,19 +861,18 @@ class SlipGajiHitung extends Page
         while ($cursor->lte($end)) {
             $half2Start = $cursor->copy()->day(16)->startOfDay();
             $half2End   = $cursor->copy()->endOfMonth()->endOfDay();
+
             if ($start->lte($half2End) && $end->gte($half2Start)) {
                 $out[] = [
-                   'date'  => $half2End->toDateString(),
-                   'date'  => $half2Start->toDateString(), // tag di tgl 16
+                    'date'  => $half2Start->toDateString(), // pakai 16
                     'label' => '16–Akhir ' . $half2Start->format('M Y'),
                 ];
             }
-
             $cursor->addMonth();
         }
-
         return $out;
     }
+
     private function firstKasbonBoundaryForLoan(\Carbon\Carbon $loanDate): \Carbon\Carbon
     {
         return $loanDate->day <= 15
@@ -818,30 +886,17 @@ class SlipGajiHitung extends Page
         $id = $gajiId ?? $this->editingGajiId;
         if (!$id) return false;
 
+        // 1) Prioritas: payment yang sudah tertaut ke slip ini
         $pays = KasbonPayment::where('slip_gaji_id', $id)->get();
+
+        // 2) Kalau belum ada (slip lama tapi payment pernah dibuat manual),
+        //    ambil payment di range tanggal & karyawan ini, lalu tautkan.
         if ($pays->isEmpty()) {
-            $slots = $this->overlapsSecondHalf()
-            ? collect($this->overlappedHalfBoundaries())
-                ->filter(fn($s) => str_starts_with($s['label'], '16–Akhir'))
-                ->values()
-                ->all()
-            : [];
-            $dates = collect($slots)->pluck('date')->unique()->values();
-            $loanKaryawanId = $this->loanKaryawanId();
-
-            if ($loanKaryawanId) {
-                $loanIds = \App\Models\KasbonLoan::where('karyawan_id', $loanKaryawanId)->pluck('id');
-                $fallback = KasbonPayment::whereIn('kasbon_loan_id', $loanIds)
-                    ->whereNull('slip_gaji_id')
-                    ->whereIn('tanggal', $dates)
-                    ->where('sumber', 'slip')
-                    ->get();
-
-                if ($fallback->isNotEmpty()) {
-                    KasbonPayment::whereIn('id', $fallback->pluck('id'))
-                        ->update(['slip_gaji_id' => $id]);
-                    $pays = $fallback;
-                }
+            $existing = $this->fetchExistingKasbonPaymentsInRange();
+            if ($existing->isNotEmpty()) {
+                KasbonPayment::whereIn('id', $existing->pluck('id'))
+                    ->update(['slip_gaji_id' => $id, 'periode_label' => $this->kasbonPeriodeLabel()]);
+                $pays = $existing;
             }
         }
 
@@ -860,13 +915,18 @@ class SlipGajiHitung extends Page
 
             $this->kasbon_loans[] = [
                 'loan_id' => $p->kasbon_loan_id,
-                'unit'    => (float)$p->nominal, // untuk referensi
+                'unit'    => (float)$p->nominal,
                 'units'   => 1,
                 'amount'  => (float)$p->nominal,
+                'slots'   => [[
+                    'date'  => \Carbon\Carbon::parse($p->tanggal)->toDateString(),
+                    'label' => $p->periode_label ?? $this->kasbonPeriodeLabel(),
+                ]],
             ];
         }
         return true;
     }
+
     private function loanKaryawanId(): ?int
     {
         $emp = \App\Models\Karyawan::where('id_karyawan', $this->karyawan_id)->first();
