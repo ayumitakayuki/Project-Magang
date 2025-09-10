@@ -7,19 +7,22 @@
                 Anda sedang mengedit rekap absensi yang sudah tersimpan.
             </div>
         @endif
-        <form method="GET" class="mb-6 flex flex-wrap items-center gap-2">
+        <form id="rekap-form" method="GET" wire:submit.prevent="filter" class="mb-6 flex flex-wrap items-center gap-2">
+            {{-- KARYAWAN (Tom Select, bisa ketik di dropdown) --}}
+            <div id="karyawan_select_wrap" class="w-72" wire:ignore>
+            <select id="karyawan_select" placeholder="Select an option">
+                <option value="">Select an option</option>
+                @foreach ($all_karyawan ?? [] as $k)
+                <option value="{{ $k->id_karyawan }}">{{ strtolower($k->nama) }}</option>
+                @endforeach
+            </select>
+            </div>
 
-            <input type="hidden" name="show_all" value="1">
+            {{-- hidden utk sync --}}
+            <input type="hidden" name="selected_id"   id="selected_id"   wire:model.defer="selected_id"   value="{{ request('selected_id') }}">
+            <input type="hidden" name="selected_name" id="selected_name" wire:model.defer="selected_name" value="{{ request('selected_name') }}">
 
-            <input
-                type="text"
-                name="karyawan_keyword"
-                value="{{ request('karyawan_keyword') }}"
-                placeholder="🔍 Search ID/Name"
-                class="rounded-lg px-3 py-1 bg-blue-200 text-sm w-64"
-            />
-
-            <select name="status_karyawan"
+            <select name="status_karyawan" wire:model.defer="status_karyawan"
                 class="rounded-lg px-3 py-1 bg-blue-200 text-sm border border-blue-500">
                 <option value="all" {{ request('status_karyawan') == 'all' ? 'selected' : '' }}>
                     Show All
@@ -36,7 +39,7 @@
             </select>
 
             {{-- Lokasi --}}
-            <select name="lokasi"
+            <select name="lokasi" wire:model.defer="selected_lokasi"
                 class="rounded-lg px-3 py-1 bg-blue-200 text-sm">
                 <option value="">Lokasi</option>
                 @foreach ($lokasi_options as $lokasi)
@@ -47,7 +50,7 @@
             </select>
 
             {{-- Proyek --}}
-            <select name="proyek"
+            <select name="proyek" wire:model.defer="selected_proyek"
                 class="rounded-lg px-3 py-1 bg-blue-200 text-sm">
                 <option value="">Proyek</option>
                 @foreach ($proyek_options as $proyek)
@@ -62,6 +65,7 @@
                 type="text"
                 id="start_date"
                 name="start_date"
+                wire:model.defer="start_date"
                 value="{{ request('start_date') ?? now()->subMonth()->toDateString() }}"
                 class="rounded-lg px-3 py-1 bg-blue-200 text-sm"
                 placeholder="Start Date"
@@ -71,17 +75,19 @@
                 type="text"
                 id="end_date"
                 name="end_date"
+                wire:model.defer="end_date"
                 value="{{ request('end_date') ?? now()->toDateString() }}"
                 class="rounded-lg px-3 py-1 bg-blue-200 text-sm"
                 placeholder="End Date"
-            />
-            
-            {{-- Tombol Filter --}}
-            <form wire:submit.prevent="refreshData">
-                <button type="submit">Filter</button>
-            </form>
+            />    
+            {{-- Tombol Aksi --}}
+            <x-filament::button type="submit">
+                Filter
+            </x-filament::button>
+            <x-filament::button type="button" color="success" wire:click="simpan">
+                Simpan ke Database
+            </x-filament::button>
         </form>
-    </form>
 
         @if (!empty($data_harian))
         @php
@@ -133,7 +139,7 @@
                     </div>
                     {{-- TOMBOL EXPORT EXCEL --}}
                     <div class="mt-3">
-                        <a href="{{ url('/export-absensi?start_date=' . request('start_date') . '&end_date=' . request('end_date') . '&id_karyawan=' . $data_karyawan->id_karyawan) }}" 
+                        <a href="{{ url('/export-absensi?start_date=' . $start_date . '&end_date=' . $end_date . '&id_karyawan=' . ($data_karyawan->id_karyawan ?? '')) }}"
                         target="_blank"
                         class="text-gray-500">
                             Download Excel
@@ -385,8 +391,16 @@
                                 dayElem.style.color = "white";
                                 dayElem.title = libur[dateStr];
                             }
+                        },
+                        // >>> tambahan penting untuk sinkron ke Livewire
+                        onChange: function (selectedDates, dateStr, instance) {
+                            instance.input.value = dateStr;
+                            // trigger ke Livewire
+                            instance.input.dispatchEvent(new Event('input', { bubbles: true }));
+                            instance.input.dispatchEvent(new Event('change', { bubbles: true }));
                         }
                     };
+
                     flatpickr("#start_date", commonOptions);
                     flatpickr("#end_date", commonOptions);
                 });
@@ -395,54 +409,133 @@
 @endpush
 
 @push('styles')
-<style>
-.custom-table {
-    border-collapse: collapse;
-    width: auto;
-    margin: 0 auto;
-    background-color: #ffffff;
-    font-size: 0.75rem;
-}
+    {{-- sudah ada flatpickr css --}}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css">
+@endpush
 
-.custom-table th,
-.custom-table td {
-    border: 1px solid black;
-    padding: 6px 10px;
-    text-align: center;
-    vertical-align: middle;
-    white-space: normal;
-    word-break: break-word;
-    font-size: 0.75rem;
-}
+@push('styles')
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css">
+@endpush
 
-.custom-table th.tanggal,
-.custom-table td.tanggal {
-    width: 110px; /* Ukuran kolom Tanggal */
-}
+@push('styles')
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css">
+@endpush
 
-.custom-table th {
-    background-color: #f3f4f6;
-    font-weight: 600;
-}
+@push('styles')
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css">
+@endpush
 
-.custom-table tr:nth-child(even) {
-    background-color: #f9fafb;
-}
+@push('styles')
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css">
+@endpush
 
-.custom-table tr:hover {
-    background-color: #f1f5f9;
-}
+@push('scripts')
+  <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const el = document.getElementById('karyawan_select');
+      if (!el) return;
 
-/* Untuk cetak */
-@media print {
+      const ts = new TomSelect(el, {
+        create: false,
+        maxOptions: 500,
+        placeholder: 'Select an option',
+        plugins: ['dropdown_input','clear_button'],
+        allowEmptyOption: true,
+        searchField: ['text'],
+        copyClassesToDropdown: false,
+      });
+
+      // nilai awal dari server
+      const preset = document.getElementById('selected_id')?.value;
+      if (preset) ts.setValue(preset, true);
+
+      // sinkron ke Livewire
+      function syncHidden(id, name) {
+        const idEl = document.getElementById('selected_id');
+        const nmEl = document.getElementById('selected_name');
+        idEl.value = id || '';
+        nmEl.value = name || '';
+        idEl.dispatchEvent(new Event('input',  { bubbles: true }));
+        nmEl.dispatchEvent(new Event('input',  { bubbles: true }));
+        idEl.dispatchEvent(new Event('change', { bubbles: true }));
+        nmEl.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+
+      el.addEventListener('change', function () {
+        const id   = el.value;
+        const name = id ? el.options[el.selectedIndex].text : '';
+        syncHidden(id, name);
+      });
+
+      ts.on('clear', () => syncHidden('', ''));
+    });
+  </script>
+@endpush
+
+@push('styles')
+  {{-- Tom Select CSS (cukup 1x di halaman ini) --}}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css">
+
+  <style>
+    /* === CSS tabel kamu (biarkan seperti ini) === */
     .custom-table {
-        font-size: 0.8rem;
-        background: #ffffff;
+      border-collapse: collapse;
+      width: auto;
+      margin: 0 auto;
+      background-color: #ffffff;
+      font-size: 0.75rem;
     }
-    .custom-table tr:nth-child(even),
-    .custom-table tr:hover {
-        background: #ffffff;
+    .custom-table th,
+    .custom-table td {
+      border: 1px solid black;
+      padding: 6px 10px;
+      text-align: center;
+      vertical-align: middle;
+      white-space: normal;
+      word-break: break-word;
+      font-size: 0.75rem;
     }
-}
+    .custom-table th.tanggal,
+    .custom-table td.tanggal { width: 110px; }
+    .custom-table th { background-color: #f3f4f6; font-weight: 600; }
+    .custom-table tr:nth-child(even) { background-color: #f9fafb; }
+    .custom-table tr:hover { background-color: #f1f5f9; }
+    @media print {
+      .custom-table { font-size: 0.8rem; background: #fff; }
+      .custom-table tr:nth-child(even),
+      .custom-table tr:hover { background: #fff; }
+    }
+
+    #karyawan_select_wrap .ts-wrapper.single .ts-control{
+    background-color:#fff;  /* bg-blue-200 */
+    border:1px solid #111827;  /* border-blue-500 */
+    border-radius:.5rem;        /* rounded-lg */
+    padding:.25rem .75rem;      /* py-1 px-3 */
+    font-size:.875rem;          /* text-sm */
+    line-height:1.25rem;
+    color:#111827;              /* gray-900 */
+    min-height:2rem;
+    box-shadow:none;
+    }
+    #karyawan_select_wrap .ts-wrapper.single .ts-control:hover{ border-color:#111827; } /* hover */
+
+    /* Tombol X di KANAN */
+    #karyawan_select_wrap .ts-wrapper .ts-control{ position:relative; padding-right:2rem; }
+    #karyawan_select_wrap .ts-wrapper .clear-button{
+    position:absolute !important;
+    right:.5rem; top:50%; transform:translateY(-50%);
+    padding:0 .25rem; opacity:.7; z-index:2;
+    }
+    #karyawan_select_wrap .ts-wrapper .clear-button:hover{ opacity:1; }
+
+    /* Biar teks/input tidak ketimpa X */
+    #karyawan_select_wrap .ts-wrapper .ts-control > input{ padding-right:2rem; }
+    #karyawan_select_wrap .ts-wrapper.single .ts-control .item{
+    padding-right:1.5rem; background:transparent; color:#111827;
+    }
+
+    /* (opsional) hilangkan caret bawaan Tom Select agar makin mirip */
+    #karyawan_select_wrap .ts-wrapper.single .ts-control::after{ display:none; }
 </style>
 @endpush

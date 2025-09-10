@@ -1,6 +1,6 @@
 <x-filament::page>
     <x-filament::card class="bg-blue-100 rounded-xl p-6">
-        <form method="GET" class="space-y-6">
+        <form wire:submit.prevent="hitungGaji" class="space-y-6">
             <input type="hidden" name="karyawan_id" value="{{ $karyawan_id }}">
             @if ($editingGajiId)
                 <div class="mb-4 p-3 bg-yellow-100 border border-yellow-400 text-yellow-800 rounded">
@@ -10,34 +10,31 @@
             <div class="flex flex-wrap gap-4">
             <div class="flex-1">
                 <label class="block text-sm font-medium text-gray-700">Periode Awal</label>
-                <input 
-                    type="text" 
-                    name="start_date" 
-                    id="start_date" 
-                    placeholder="{{ now()->toDateString() }}" 
-                    value="{{ request('start_date') }}"
+                <input
+                    type="text"
+                    id="start_date"
+                    wire:model.defer="start_date"
+                    placeholder="{{ now()->toDateString() }}"
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-black">
             </div>
 
             <div class="flex-1">
                 <label class="block text-sm font-medium text-gray-700">Periode Akhir</label>
-                <input 
-                    type="text" 
-                    name="end_date" 
-                    id="end_date" 
-                    placeholder="{{ now()->toDateString() }}" 
-                    value="{{ request('end_date') }}"
+                <input
+                    type="text"
+                    id="end_date"
+                    wire:model.defer="end_date"
+                    placeholder="{{ now()->toDateString() }}"
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-black">
             </div>
             <div class="flex-1">
                 <label class="block text-sm font-medium text-gray-700">Tipe Pembayaran</label>
                 <select
-                    name="tipe_pembayaran"
                     wire:model="tipe_pembayaran"
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-black"
                 >
                     <option value="payroll">Payroll</option>
-                    <option value="non_payroll">Non Payroll</option>
+                    <option value="non-payroll">Non Payroll</option>
                 </select>
             </div>
             <div class="flex items-end">
@@ -122,7 +119,15 @@
 
                     </div>
                 </div>
-
+                @php
+                    // Format desimal Indonesia: koma, tanpa ribuan untuk kolom Masuk/Faktor
+                    $fmtId = function($n, $max=2) {
+                        $n = (float) ($n ?? 0);
+                        if (fmod($n, 1.0) === 0.0) return (int) $n; // 10
+                        $s = number_format($n, $max, ',', '');      // 10,50
+                        return rtrim(rtrim($s, '0'), ',');          // 10,5
+                    };
+                @endphp
 
                 <table class="custom-table">
                     <!-- Table Header -->
@@ -175,48 +180,34 @@
                         <tr>
                             <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
                             <td>Lembur senin s/d jumat</td>
-                            <td class="px-6 py-4 text-center">
-                                {{ fmod($gaji_data['lembur_senin_jumat_masuk'], 1) === 0.0 
-                                    ? (int) $gaji_data['lembur_senin_jumat_masuk'] 
-                                    : number_format($gaji_data['lembur_senin_jumat_masuk'], 1, '.', '.') }}
+                            <td class="text-center">{{ $fmtId($gaji_data['lembur_senin_jumat_masuk'] ?? 0, 1) }}</td>
+                            <td class="text-center">{{ $fmtId($gaji_data['lembur_senin_jumat_faktor'] ?? 0, 2) }}</td>
+                            <td class="text-right">
+                                {{ number_format((float) ($gaji_data['lembur_senin_jumat_nominal'] ?? 0), 0, ',', '.') }}
                             </td>
-                            <td class="text-center">{{ $gaji_data['lembur_senin_jumat_faktor'] }}</td>
-                            <td class="text-right">{{ number_format($gaji_data['lembur_senin_jumat_nominal'], 0, ',', '.') }}</td>
                             <td class="text-right">{{ number_format($gaji_data['lembur_senin_jumat_total'], 0, ',', '.') }}</td>
                         </tr>
                         <tr>
                             <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
-                            <td class="px-6 py-4">Lembur Sabtu</td>
-                            <td>
-                                {{ fmod($gaji_data['lembur_sabtu_masuk'], 1) === 0.0 
-                                    ? (int) $gaji_data['lembur_sabtu_masuk'] 
-                                    : number_format($gaji_data['lembur_sabtu_masuk'], 1, '.', '.') }}
-                            </td>
-                            <td class="text-center">{{ $gaji_data['lembur_sabtu_faktor'] }}</td>
+                            <td class="px-6 py-4">Lembur Sabtu</td>                  
+                            <td class="text-center">{{ $fmtId($gaji_data['lembur_sabtu_masuk'] ?? 0, 1) }}</td>
+                            <td class="text-center">{{ $fmtId($gaji_data['lembur_sabtu_faktor'] ?? 0, 2) }}</td>
                             <td class="text-right">{{ number_format($gaji_data['lembur_sabtu_nominal'], 0, ',', '.') }}</td>
                             <td class="text-right">{{ number_format($gaji_data['lembur_sabtu_total'], 0, ',', '.') }}</td>
                         </tr>
                         <tr>
                             <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
                             <td class="px-6 py-4">Lembur Minggu</td>
-                            <td class="px-6 py-4 text-center">
-                                {{ fmod($gaji_data['lembur_minggu_masuk'], 1) === 0.0 
-                                    ? (int) $gaji_data['lembur_minggu_masuk'] 
-                                    : number_format($gaji_data['lembur_minggu_masuk'], 1, '.', '.') }}
-                            </td>
-                            <td class="px-6 py-4 text-center">{{ $gaji_data['lembur_minggu_faktor'] }}</td>
+                            <td class="text-center">{{ $fmtId($gaji_data['lembur_minggu_masuk'] ?? 0, 1) }}</td>
+                            <td class="text-center">{{ $fmtId($gaji_data['lembur_minggu_faktor'] ?? 0, 2) }}</td>
                             <td class="px-6 py-4 text-right">{{ number_format($gaji_data['lembur_minggu_nominal'], 0, ',', '.') }}</td>
                             <td class="px-6 py-4 text-right">{{ number_format($gaji_data['lembur_minggu_total'], 0, ',', '.') }}</td>
                         </tr>
                         <tr>
                             <td class="px-6 py-4 text-center">{{ $labels[$rowIndex++] }}</td>
                             <td class="px-6 py-4">Lembur Hari Besar</td>
-                            <td class="px-6 py-4 text-center">
-                                {{ fmod($gaji_data['lembur_hari_besar_masuk'], 1) === 0.0 
-                                    ? (int) $gaji_data['lembur_hari_besar_masuk'] 
-                                    : number_format($gaji_data['lembur_hari_besar_masuk'], 1, '.', '.') }}
-                            </td>
-                            <td class="px-6 py-4 text-center">{{ $gaji_data['lembur_hari_besar_faktor'] }}</td>
+                            <td class="text-center">{{ $fmtId($gaji_data['lembur_hari_besar_masuk'] ?? 0, 1) }}</td>
+                            <td class="text-center">{{ $fmtId($gaji_data['lembur_hari_besar_faktor'] ?? 0, 2) }}</td>
                             <td class="px-6 py-4 text-right">{{ number_format($gaji_data['lembur_hari_besar_nominal'], 0, ',', '.') }}</td>
                             <td class="px-6 py-4 text-right">{{ number_format($gaji_data['lembur_hari_besar_total'], 0, ',', '.') }}</td>
                         </tr>
@@ -236,7 +227,12 @@
                             <td class="px-6 py-4 text-center">
                                 {{ fmod($item['masuk'], 1) === 0.0 ? (int) $item['masuk'] : number_format($item['masuk'], 1, ',', '.') }}
                             </td>
-                            <td class="px-6 py-4 text-center">{{ $item['faktor'] }}</td>
+                            <td class="px-6 py-4 text-center">
+                                {{ fmod($item['faktor'], 1) === 0.0
+                                    ? (int) $item['faktor']
+                                    : rtrim(rtrim(number_format($item['faktor'], 2, '.', ''), '0'), '.') }}
+                            </td>
+
                             <td class="px-6 py-4 text-right">{{ number_format($item['nominal_lembur'], 0, ',', '.') }}</td>
                             <td class="px-6 py-4 text-right">
                                 {{ fmod($item['total'], 1) === 0.0 ? (int) $item['total'] : number_format($item['total'], 1, ',', '.') }}
@@ -321,24 +317,30 @@
                 @stack('scripts')
 
                 <!-- Add Item Form -->
-                <div x-data="{ 
+                <div x-data="{
                     showForm: false,
                     karyawanNominals: @js($gaji_data['nominals'] ?? []),
+
+                    // helper: dukung koma sebagai desimal
+                    toFloat(v){ return parseFloat(String(v ?? '').replace(',', '.')) || 0 },
+                    normalize(v){ return String(v ?? '').replace(',', '.') },
+
                     calculateTotal() {
-                        const masuk = parseFloat(this.formData.masuk) || 0;
-                        const nominal = parseFloat(this.formData.nominal_lembur) || 0;
-                        const faktor = parseFloat(this.formData.faktor) || 1;
-                        this.formData.total = masuk * nominal * faktor;
-                        $wire.newItem.total = this.formData.total; // sinkron ke Livewire
+                        const masuk   = this.toFloat(this.formData.masuk);
+                        const faktor  = this.toFloat(this.formData.faktor) || 1;
+                        const nominal = this.toFloat(this.formData.nominal_lembur);
+                        this.formData.total = masuk * faktor * nominal;
+
+                        // sinkron ke Livewire (pakai titik biar lolos numeric)
+                        $wire.newItem.masuk          = this.normalize(this.formData.masuk);
+                        $wire.newItem.faktor         = this.normalize(this.formData.faktor);
+                        $wire.newItem.nominal_lembur = this.normalize(this.formData.nominal_lembur);
+                        $wire.newItem.total          = this.formData.total;
                     },
-                    formData: {
-                        type: '',
-                        masuk: '',
-                        faktor: '', 
-                        nominal_lembur: '',
-                        total: ''
-                    }
+
+                    formData: { type:'', masuk:'', faktor:'', nominal_lembur:'', total:'' }
                 }" class="mt-4">
+
                     <button @click="showForm = !showForm"
                         <button @click="showForm = !showForm"
                         class="inline-flex items-center px-3 py-1.5 bg-white border border-gray-300 rounded-md 
@@ -360,41 +362,46 @@
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Jenis Item</label>
                                     <div class="relative overflow-visible z-50">
                                         <select
-                                        x-model="formData.type"
-                                        @change="
-                                            formData.nominal_lembur = karyawanNominals[formData.type] || 0;
+                                            x-model="formData.type"
+                                            @change="
+                                                const isPerizinan = ['perizinan_sakit','perizinan_berduka','perizinan_tanpa_alasan'].includes(formData.type);
 
-                                            // default khusus Perizinan (Perjam)
-                                            if (formData.type === 'perizinan_jam') {
-                                            formData.nominal_lembur = @js((float)($gaji_data['potongan_tidak_masuk_nominal'] ?? 0));
-                                            formData.faktor = formData.faktor || 1;
-                                            }
+                                                // perizinan: nominal 0, faktor default 1 (boleh diubah user)
+                                                formData.nominal_lembur = isPerizinan ? 0 : (karyawanNominals[formData.type] || 0);
+                                                if (isPerizinan && (!formData.faktor || this.toFloat(formData.faktor) <= 0)) {
+                                                    formData.faktor = '1';
+                                                }
 
-                                            $wire.newItem.type = formData.type;
-                                            $wire.newItem.nominal_lembur = formData.nominal_lembur;
-                                            $wire.newItem.faktor = formData.faktor || 1;
-                                            calculateTotal();
-                                        "
-                                        wire:model="newItem.type"
-                                        class="w-full rounded-md border-gray-300 shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500 relative z-50 bg-white">
-                                        <option value="">Pilih Item...</option>
+                                                $wire.newItem.type           = formData.type;
+                                                $wire.newItem.nominal_lembur = this.normalize(formData.nominal_lembur); // koma -> titik
+                                                $wire.newItem.faktor         = this.normalize(formData.faktor);         // koma -> titik
 
-                                        <optgroup label="Uang Makan">
-                                            <option value="uang_makan_lembur_malam">Uang Makan Lembur Malam</option>
-                                            <option value="uang_makan_lembur_jalan">Uang Makan Lembur Jalan</option>
-                                        </optgroup>
+                                                this.calculateTotal();
+                                                "
 
-                                        <optgroup label="Potongan">
-                                            <option value="bpjs_kesehatan">Potongan BPJS Kesehatan</option>
-                                            <option value="bpjs_tk">Potongan BPJS TK</option>
-                                            <option value="bpjs_gabungan">Potongan BPJS Kesehatan + TK</option>
-                                        </optgroup>
+                                            wire:model="newItem.type"
+                                            class="w-full rounded-md border-gray-300 shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500 bg-white">
+                                            <option value="">Pilih Item...</option>
 
-                                        <!-- NEW: hanya perjam -->
-                                        <optgroup label="Perizinan">
-                                            <option value="perizinan_jam">Potongan Perizinan (Perjam)</option>
-                                        </optgroup>
-                                        </select>
+                                            <optgroup label="Uang Makan">
+                                                <option value="uang_makan_lembur_malam">Uang Makan Lembur Malam</option>
+                                                <option value="uang_makan_lembur_jalan">Uang Makan Lembur Jalan</option>
+                                            </optgroup>
+
+                                            <optgroup label="Potongan">
+                                                <option value="bpjs_kesehatan">Potongan BPJS Kesehatan</option>
+                                                <option value="bpjs_tk">Potongan BPJS TK</option>
+                                                <option value="bpjs_gabungan">Potongan BPJS Kesehatan + TK</option>
+                                            </optgroup>
+
+                                            <!-- Perizinan -->
+                                            <optgroup label="Perizinan">
+                                                <option value="perizinan_sakit">Perizinan Sakit (Surat Dokter)</option>
+                                                <option value="perizinan_berduka">Perizinan Berduka</option>
+                                                <option value="perizinan_tanpa_alasan">Potongan Perizinan Tanpa Alasan</option>
+                                            </optgroup>
+                                            </select>
+
                                     </div>
                                 </div>
                                 <div>

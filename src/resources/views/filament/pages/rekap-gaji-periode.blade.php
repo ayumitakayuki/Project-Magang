@@ -14,6 +14,11 @@
     </div>
 
     <div class="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div class="mb-3 flex justify-end">
+            <x-filament::button type="button" icon="heroicon-o-document-arrow-down" wire:click="exportPdf">
+                Download PDF
+            </x-filament::button>
+        </div>
         <table class="min-w-[900px] w-full text-sm">
             <thead class="bg-gray-50">
                 <tr class="text-left text-gray-700">
@@ -56,11 +61,5 @@
                 @endforelse
             </tbody>
         </table>
-
-        <div class="mb-3 flex justify-end">
-            <x-filament::button type="button" icon="heroicon-o-document-arrow-down" wire:click="exportPdf">
-                Download PDF
-            </x-filament::button>
-        </div>
     </div>
 </x-filament::page>

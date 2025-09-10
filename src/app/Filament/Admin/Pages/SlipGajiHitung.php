@@ -64,20 +64,17 @@ class SlipGajiHitung extends Page
         $this->karyawan_id   = request()->query('karyawan_id');
         $this->start_date    = request()->query('start_date');
         $this->end_date      = request()->query('end_date');
-
         $this->tipe_pembayaran = request()->query('tipe_pembayaran', $this->tipe_pembayaran);
 
         if ($this->editingGajiId) {
             $gaji = Gaji::with('details')->findOrFail($this->editingGajiId);
-
             $this->karyawan_id     = $gaji->id_karyawan;
             $this->start_date      = $gaji->periode_awal->format('Y-m-d');
             $this->end_date        = $gaji->periode_akhir->format('Y-m-d');
-            
             $this->tipe_pembayaran = $gaji->tipe_pembayaran ?? 'payroll';
 
-            $this->hitungGaji();
-            $this->loadGajiData();
+            // penting: muat dari tabel gaji + gaji_details agar item manual tidak hilang
+            $this->loadExistingGaji($this->editingGajiId);
             if (! $this->hydrateKasbonFromSlipPayments()) {
                 $this->computeKasbonAuto();
             }
@@ -148,6 +145,7 @@ class SlipGajiHitung extends Page
 
     public function addItem()
     {
+        $this->normalizeNewItemNumbers();
         foreach (['masuk','faktor','nominal_lembur'] as $f) {
             if (!is_numeric($this->newItem[$f])) $this->newItem[$f] = 0;
         }
@@ -175,9 +173,10 @@ class SlipGajiHitung extends Page
             'bpjs_tk'        => ['keterangan' => 'Potongan BPJS TK',                      'no' => 'l'],
             'bpjs_gabungan'  => ['keterangan' => 'Potongan BPJS Kesehatan + TK',          'no' => 'm'],
 
-            // NEW: Perizinan
-            'perizinan_jam'  => ['keterangan' => 'Potongan Perizinan (Perjam)',           'no' => 'n'],
-            'perizinan_hari' => ['keterangan' => 'Potongan Perizinan (Perhari)',          'no' => 'o'],
+            'perizinan_sakit'         => ['keterangan' => 'Perizinan Sakit (Surat Dokter)',       'no' => 'n'],
+            'perizinan_berduka'       => ['keterangan' => 'Perizinan Berduka',                    'no' => 'o'],
+            'perizinan_tanpa_alasan'  => ['keterangan' => 'Potongan Perizinan Tanpa Alasan (8 jam/hari)', 'no' => 'p'],
+
         ];
 
         $type = $this->newItem['type'] ?? '';
@@ -205,7 +204,7 @@ class SlipGajiHitung extends Page
         $this->calculateGrandTotal();
     }
 
-
+    
     public function deleteItem($index)
     {
         unset($this->additional_items[$index]);
@@ -252,22 +251,21 @@ class SlipGajiHitung extends Page
         }
         return $subTotal;
     }
-
     public function updatedNewItemType($value)
     {
-        $nominals = $this->gaji_data['nominals'] ?? [];
-        $this->newItem['nominal_lembur'] = $nominals[$value] ?? 0;
-
-        if ($value === 'perizinan_jam') {
-            $this->newItem['nominal_lembur'] = (float)($this->gaji_data['potongan_tidak_masuk_nominal'] ?? 0);
-            $this->newItem['faktor'] = $this->newItem['faktor'] ?: 1;
+        if (in_array($value, ['perizinan_sakit','perizinan_berduka','perizinan_tanpa_alasan'], true)) {
+            // Perizinan: nominal default 0
+            $this->newItem['nominal_lembur'] = 0.0;
+            if (!is_numeric($this->newItem['faktor']) || (float)$this->newItem['faktor'] <= 0) {
+                $this->newItem['faktor'] = 1; // default 1, boleh diubah (mis. 8 utk potong per hari)
+            }
+        } else {
+            // Item lain boleh tetap dari mapping karyawan
+            $this->newItem['nominal_lembur'] = (float)($this->gaji_data['nominals'][$value] ?? 0);
         }
 
         $this->recalculateTotal();
     }
-
-
-
     public function updatedNewItemMasuk()
     {
         $this->recalculateTotal();
@@ -280,6 +278,7 @@ class SlipGajiHitung extends Page
 
     private function recalculateTotal()
     {
+        $this->normalizeNewItemNumbers();
         $masuk = (float) ($this->newItem['masuk'] ?? 0);
         $nominal = (float) ($this->newItem['nominal_lembur'] ?? 0);
         $faktor = (float) ($this->newItem['faktor'] ?? 1);
@@ -483,9 +482,8 @@ class SlipGajiHitung extends Page
             }
         }
             DB::commit();
-            return redirect()->route('filament.admin.pages.histori-slip-gaji');
-
-            session()->flash('success', $this->editingGajiId ? 'Slip gaji berhasil diperbarui.' : 'Slip gaji berhasil disimpan.');
+                session()->flash('success', $this->editingGajiId ? 'Slip gaji berhasil diperbarui.' : 'Slip gaji berhasil disimpan.');
+                return redirect()->route('filament.admin.pages.histori-slip-gaji');
         } catch (\Exception $e) {
             DB::rollBack();
             session()->flash('error', 'Gagal menyimpan slip gaji: ' . $e->getMessage());
@@ -523,77 +521,112 @@ class SlipGajiHitung extends Page
         $gaji = Gaji::with('details')->findOrFail($id);
 
         $this->selected_id = $gaji->id_karyawan;
-        $this->start_date = $gaji->periode_awal;
-        $this->end_date = $gaji->periode_akhir;
+        $this->start_date  = $gaji->periode_awal;   // kalau mau string: ->toDateString()
+        $this->end_date    = $gaji->periode_akhir;
 
-        // Muat ulang gaji_data berdasarkan data tersimpan
         $this->gaji_data = [
-            'id_karyawan' => $gaji->id_karyawan,
-            'nama' => $gaji->nama,
-            'status' => $gaji->status,
-            'lokasi' => $gaji->lokasi,
-            'jenis_proyek' => $gaji->jenis_proyek,
-            'periode_awal' => $gaji->periode_awal,
+            'id_karyawan'   => $gaji->id_karyawan,
+            'nama'          => $gaji->nama,
+            'status'        => $gaji->status,
+            'lokasi'        => $gaji->lokasi,
+            'jenis_proyek'  => $gaji->jenis_proyek,
+            'periode_awal'  => $gaji->periode_awal,
             'periode_akhir' => $gaji->periode_akhir,
-            // kasbon, total, dll nanti bisa ditarik dari detail
         ];
+
+        // ⬇️ penting: default semua field supaya nggak “undefined”
+        $defaults = [
+            'gaji_harian_masuk' => 0, 'gaji_harian_nominal' => 0, 'gaji_setengah_bulan_nominal' => 0,
+
+            'lembur_senin_jumat_masuk' => 0, 'lembur_senin_jumat_faktor' => 0, 'lembur_senin_jumat_nominal' => 0, 'lembur_senin_jumat_total' => 0,
+            'lembur_sabtu_masuk'       => 0, 'lembur_sabtu_faktor'       => 0, 'lembur_sabtu_nominal'       => 0, 'lembur_sabtu_total'       => 0,
+            'lembur_minggu_masuk'      => 0, 'lembur_minggu_faktor'      => 0, 'lembur_minggu_nominal'      => 0, 'lembur_minggu_total'      => 0,
+            'lembur_hari_besar_masuk'  => 0, 'lembur_hari_besar_faktor'  => 0, 'lembur_hari_besar_nominal'  => 0, 'lembur_hari_besar_total'  => 0,
+
+            'potongan_tidak_masuk_masuk'     => 0, 'potongan_tidak_masuk_nominal'     => 0, 'potongan_tidak_masuk_total'     => 0,
+            'potongan_tidak_disiplin_masuk'  => 0, 'potongan_tidak_disiplin_nominal'  => 0, 'potongan_tidak_disiplin_total'  => 0,
+            'kasbon' => 0, 'kasbon_masuk' => 0, 'kasbon_faktor' => 1, 'kasbon_nominal' => 0,
+        ];
+        $this->gaji_data = $this->gaji_data + $defaults;
 
         foreach ($gaji->details as $detail) {
             switch ($detail->kode) {
                 case 'a':
-                    $this->gaji_data['gaji_setengah_bulan_nominal'] = $detail->total;
+                    $status = strtolower($gaji->status ?? '');
+
+                    if ($status === 'harian lepas') {
+                        $this->gaji_data['gaji_harian_masuk']   = (float) ($detail->masuk   ?? 0);
+                        $this->gaji_data['gaji_harian_nominal'] = (float) ($detail->nominal ?? 0);
+                        
+                    } else {
+                        $this->gaji_data['gaji_setengah_bulan_nominal'] =
+                            (float) ($detail->nominal ?? $detail->total ?? 0);
+                    }
                     break;
-                case 'b':
-                case 'c':
-                case 'd':
-                case 'e':
+
+                case 'b': case 'c': case 'd': case 'e':
                     $tipe = match ($detail->kode) {
                         'b' => 'senin_jumat',
                         'c' => 'sabtu',
                         'd' => 'minggu',
                         'e' => 'hari_besar',
                     };
-                    $this->gaji_data["lembur_{$tipe}_masuk"] = $detail->masuk;
-                    $this->gaji_data["lembur_{$tipe}_faktor"] = $detail->faktor;
-                    $this->gaji_data["lembur_{$tipe}_nominal"] = $detail->nominal;
-                    $this->gaji_data["lembur_{$tipe}_total"] = $detail->total;
+                    $this->gaji_data["lembur_{$tipe}_masuk"]   = (float) ($detail->masuk   ?? 0);
+                    $this->gaji_data["lembur_{$tipe}_faktor"]  = (float) ($detail->faktor  ?? 0);
+                    $this->gaji_data["lembur_{$tipe}_nominal"] = (float) ($detail->nominal ?? 0);
+                    $this->gaji_data["lembur_{$tipe}_total"]   = (float) ($detail->total   ?? 0);
                     break;
+
                 case 'f':
-                    $this->gaji_data['potongan_tidak_masuk_masuk'] = $detail->masuk;
-                    $this->gaji_data['potongan_tidak_masuk_nominal'] = $detail->nominal;
-                    $this->gaji_data['potongan_tidak_masuk_total'] = $detail->total;
+                    $this->gaji_data['potongan_tidak_masuk_masuk']   = (float) ($detail->masuk   ?? 0);
+                    $this->gaji_data['potongan_tidak_masuk_nominal'] = (float) ($detail->nominal ?? 0);
+                    $this->gaji_data['potongan_tidak_masuk_total']   = (float) ($detail->total   ?? 0);
                     break;
+
                 case 'g':
-                    $this->gaji_data['potongan_tidak_disiplin_masuk'] = $detail->masuk;
-                    $this->gaji_data['potongan_tidak_disiplin_nominal'] = $detail->nominal;
-                    $this->gaji_data['potongan_tidak_disiplin_total'] = $detail->total;
+                    $this->gaji_data['potongan_tidak_disiplin_masuk']   = (float) ($detail->masuk   ?? 0);
+                    $this->gaji_data['potongan_tidak_disiplin_nominal'] = (float) ($detail->nominal ?? 0);
+                    $this->gaji_data['potongan_tidak_disiplin_total']   = (float) ($detail->total   ?? 0);
                     break;
-                // case 'h':
-                //     $this->gaji_data['kasbon_masuk'] = $detail->masuk;
-                //     $this->gaji_data['kasbon_faktor'] = $detail->faktor;
-                //     $this->gaji_data['kasbon_nominal'] = $detail->nominal;
-                //     $this->gaji_data['kasbon'] = $detail->total;
-                //     break;
+
+                case 'h':
+                    $this->gaji_data['kasbon_masuk']   = (int)   ($detail->masuk   ?? 0);
+                    $this->gaji_data['kasbon_faktor']  = (float) ($detail->faktor  ?? 1);
+                    $this->gaji_data['kasbon_nominal'] = (float) ($detail->nominal ?? 0);
+                    $this->gaji_data['kasbon']         = (float) ($detail->total   ?? 0);
+                    break;
+
                 case 'jml':
-                    $this->sub_total = $detail->total;
+                    $this->sub_total = (float) ($detail->total ?? 0);
                     break;
+
                 case 'grand':
-                    $this->gaji_data['total_gaji'] = $detail->total;
+                    $this->gaji_data['total_gaji'] = (float) ($detail->total ?? 0);
                     break;
+
                 default:
-                    // Tambahan item manual
                     $this->additional_items[] = [
-                        'no' => $detail->kode,
-                        'keterangan' => $detail->keterangan,
-                        'masuk' => $detail->masuk,
-                        'faktor' => $detail->faktor,
-                        'nominal_lembur' => $detail->nominal,
-                        'total' => $detail->total,
+                        'no'             => $detail->kode,
+                        'keterangan'     => $detail->keterangan,
+                        'masuk'          => (float) ($detail->masuk   ?? 0),
+                        'faktor'         => (float) ($detail->faktor  ?? 0),
+                        'nominal_lembur' => (float) ($detail->nominal ?? 0),
+                        'total'          => (float) ($detail->total   ?? 0),
                     ];
                     break;
             }
         }
     }
+    private function normalizeNewItemNumbers(): void
+    {
+        foreach (['masuk','faktor','nominal_lembur','total'] as $k) {
+            if (isset($this->newItem[$k]) && is_string($this->newItem[$k])) {
+                // cuma ganti desimal koma -> titik
+                $this->newItem[$k] = str_replace(',', '.', $this->newItem[$k]);
+            }
+        }
+    }
+
     protected function getViewData(): array
     {
         return [
@@ -639,10 +672,14 @@ class SlipGajiHitung extends Page
             'total'          => $qty * $nominal * $faktor,
         ];
     }
-
     private function autoAddDefaultDeductions(): void
     {
-        if (!$this->overlapsFirstHalf()) return;
+        // hanya kalau periode MENGANDUNG tanggal 1
+        if (!$this->rangeIncludesDayOfMonth(1)) {
+            // kalau sebelumnya pernah auto-add BPJS, bersihkan lagi
+            $this->removeBpjsAutoItems();
+            return;
+        }
 
         $nominals = $this->gaji_data['nominals'] ?? [];
         $has = fn($k) => isset($nominals[$k]) && (float)$nominals[$k] > 0;
@@ -653,6 +690,38 @@ class SlipGajiHitung extends Page
             if ($has('bpjs_kesehatan')) $this->pushAdditionalItemIfMissing('bpjs_kesehatan');
             if ($has('bpjs_tk'))        $this->pushAdditionalItemIfMissing('bpjs_tk');
         }
+
+        $this->calculateGrandTotal();
+    }
+
+    private function rangeIncludesDayOfMonth(int $day): bool
+    {
+        if (!$this->start_date || !$this->end_date) return false;
+
+        $start = \Carbon\Carbon::parse($this->start_date)->startOfDay();
+        $end   = \Carbon\Carbon::parse($this->end_date)->endOfDay();
+        if ($start->gt($end)) [$start, $end] = [$end, $start];
+
+        $cursor = $start->copy()->startOfMonth();
+        while ($cursor->lte($end)) {
+            $d = $cursor->copy()->day($day)->startOfDay();
+            if ($d->betweenIncluded($start, $end)) return true; // periode mencakup tgl {day}
+            $cursor->addMonth();
+        }
+        return false;
+    }
+
+    private function removeBpjsAutoItems(): void
+    {
+        $labels = [
+            'Potongan BPJS Kesehatan',
+            'Potongan BPJS TK',
+            'Potongan BPJS Kesehatan + TK',
+        ];
+        $this->additional_items = collect($this->additional_items)
+            ->reject(fn($it) => in_array($it['keterangan'] ?? '', $labels, true))
+            ->values()
+            ->all();
 
         $this->calculateGrandTotal();
     }

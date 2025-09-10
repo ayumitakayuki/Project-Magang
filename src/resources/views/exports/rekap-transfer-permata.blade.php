@@ -2,6 +2,29 @@
 <!doctype html>
 <html>
 <head>
+    @php
+    // Shim helper kalau belum ada
+        if (! function_exists('__clean_utf8')) {
+            function __clean_utf8($v) {
+                if ($v === null) return '';
+                $s = (string) $v;
+                $s = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $s) ?? $s;
+                if (!mb_check_encoding($s, 'UTF-8')) {
+                    $tmp = @mb_convert_encoding($s, 'UTF-8', 'UTF-8, ISO-8859-1, Windows-1252');
+                    if ($tmp === false) $tmp = @iconv('UTF-8', 'UTF-8//IGNORE', $s);
+                    $s = $tmp !== false ? $tmp : '';
+                }
+                $s = preg_replace('/[\x{10000}-\x{10FFFF}]/u', '', $s) ?? $s; // buang emoji
+                return $s;
+            }
+        }
+        if (! function_exists('__h')) {
+            function __h($v) {
+                return htmlspecialchars(__clean_utf8($v), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', false);
+            }
+        }
+    @endphp
+
     <meta charset="utf-8">
     <title>Rekap Transfer Permata</title>
     <style>
@@ -19,44 +42,45 @@
         .nowrap { white-space: nowrap; }                  /* jaga 1 baris */
         .cut { overflow: hidden; text-overflow: ellipsis; }/* potong teks panjang */
 
-        .totals td { font-weight: 700; background: #fafafa; }
-        .small { font-size: 8px; color: #666; }
+        .totals td {
+            font-weight: 700;
+            background: #fafafa;
+            font-size: 8px;       /* sudah kecil */
+            padding: 2px 6px;     /* tambahin padding biar ada jarak */
+        }
     </style>
 </head>
 <body>
+    @php
+    $maskOffsite = function ($v) {
+        $s = trim((string) $v);
+        if ($s === '') return '—';
+        return preg_match('/off[\s-]?site/i', $s) ? '—' : $s;
+    };
+    $lokasi = $maskOffsite($lokasi ?? ($header->lokasi ?? null));
+    $proyek = $maskOffsite($proyek ?? ($header->proyek ?? null));
+@endphp
+
 @php
     use Carbon\Carbon;
 
-    // sanitizer aman UTF-8
-    if (!function_exists('__clean_utf8')) {
-        function __clean_utf8($v) {
-            if ($v === null) return '';
-            $s = (string) $v;
-            $s = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $s) ?? $s;
-            if (!mb_check_encoding($s, 'UTF-8')) {
-                $tmp = @mb_convert_encoding($s, 'UTF-8', 'UTF-8, ISO-8859-1, Windows-1252');
-                if ($tmp === false) $tmp = @iconv('UTF-8', 'UTF-8//IGNORE', $s);
-                $s = $tmp !== false ? $tmp : '';
-            }
-            $s = preg_replace('/[\x{10000}-\x{10FFFF}]/u', '', $s) ?? $s; // buang emoji
-            return $s;
-        }
-    }
-    if (!function_exists('__h')) {
-        function __h($v) { return htmlspecialchars(__clean_utf8($v), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', false); }
-    }
+    // ... fungsi __clean_utf8 & __h tetap
 
     /** @var \App\Models\RekapTransferPermata $header */
-    /** @var array<int,array<string,mixed>> $rows */
-    /** @var array<string,float|int> $totals */
 
     $bank    = $header->bank ?? 'PERMATA';
     $periode = ($header->period_start && $header->period_end)
         ? Carbon::parse($header->period_start)->format('d M Y').' – '.Carbon::parse($header->period_end)->format('d M Y')
         : ($labelPeriode ?? '—');
 
-    $lokasi  = $header->lokasi ?? '—';
-    $proyek  = $header->proyek ?? '—';
+    // masking supaya kata "offsite" tidak tampil di header
+    $maskOffsite = function ($v) {
+        $s = trim(mb_strtolower((string) $v));
+        return ($s === 'offsite' || $s === 'off site') ? '—' : ($v ?: '—');
+    };
+
+    $lokasi  = $maskOffsite($header->lokasi ?? '—');
+    $proyek  = $maskOffsite($header->proyek ?? '—');
 
     // label pendek agar header kolom tetap 1 baris
     $ps = $header->period_start ? Carbon::parse($header->period_start) : null;
@@ -71,12 +95,12 @@
     }
 @endphp
 
-<h2>{!! __h($bank) !!} — TRANSFER PERMATA</h2>
+<h2>{{ $bank }} — TRANSFER PERMATA</h2>
 <div class="meta">
-    Periode: <strong>{!! __h($periode) !!}</strong>
-    &nbsp; • &nbsp; Lokasi: {!! __h($lokasi) !!}
-    &nbsp; • &nbsp; Proyek: {!! __h($proyek) !!}<br>
-    Gaji 01–15: {!! __h($labelGaji15Short) !!} &nbsp;•&nbsp; Gaji 16–31: {!! __h($labelGaji16Short) !!}
+    Periode: <strong>{{ $periode }}</strong>
+    &nbsp; • &nbsp; Lokasi: {{ $lokasi }}
+    &nbsp; • &nbsp; Proyek: {{ $proyek }}
+    &nbsp; • &nbsp; Gaji 01–15: {{ $labelGaji15Short }} &nbsp;•&nbsp; Gaji 16–31: {{ $labelGaji16Short }}
 </div>
 
 <table>
@@ -106,8 +130,10 @@
             <th class="num nowrap">Pembulatan</th>
             <th class="num nowrap">Kasbon</th>
             <th class="num nowrap">Sisa Kasbon</th>
-            <th class="num nowrap">Gaji 16–31 ({{ $labelGaji16Short }})</th>
-            <th class="num nowrap">Gaji 01–15 ({{ $labelGaji15Short }})</th>
+            <th class="num" style="white-space:normal">Gaji 16–31<br>({{ $labelGaji16Short }})</th>
+            <th class="num" style="white-space:normal">Gaji 01–15<br>({{ $labelGaji15Short }})</th>
+
+
         </tr>
     </thead>
 
@@ -136,14 +162,19 @@
     @if (!empty($rows))
     <tfoot>
         <tr class="totals">
-            <td colspan="6" class="num nowrap">TOTAL</td>
-            <td class="num nowrap">Rp {{ number_format((float)($totals['pembulatan'] ?? 0), 0, ',', '.') }}</td>
-            <td class="num nowrap">Rp {{ number_format((float)($totals['kasbon'] ?? 0), 0, ',', '.') }}</td>
-            <td class="num nowrap">Rp {{ number_format((float)($totals['sisa_kasbon'] ?? 0), 0, ',', '.') }}</td>
-            <td class="num nowrap">Rp {{ number_format((float)($totals['gaji_16_31'] ?? 0), 0, ',', '.') }}</td>
-            <td class="num nowrap">Rp {{ number_format((float)($totals['gaji_15_31'] ?? 0), 0, ',', '.') }}</td>
+            <td colspan="6" class="num" style="text-align:right; padding-right:10px;">
+                TOTAL
+            </td>
+            <td class="num">Rp {{ number_format((float)($totals['pembulatan'] ?? 0), 0, ',', '.') }}</td>
+            <td class="num">Rp {{ number_format((float)($totals['kasbon'] ?? 0), 0, ',', '.') }}</td>
+            <td class="num">Rp {{ number_format((float)($totals['sisa_kasbon'] ?? 0), 0, ',', '.') }}</td>
+            <td class="num">Rp {{ number_format((float)($totals['gaji_16_31'] ?? 0), 0, ',', '.') }}</td>
+            <td class="num">Rp {{ number_format((float)($totals['gaji_15_31'] ?? 0), 0, ',', '.') }}</td>
         </tr>
     </tfoot>
+
+
+
     @endif
 </table>
 
