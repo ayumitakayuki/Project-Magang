@@ -13,6 +13,8 @@ use Carbon\Carbon;
 use App\Models\KasbonLoan;
 use App\Models\KasbonPayment;
 use Illuminate\Support\Collection;
+use App\Models\AbsensiRekap;
+use Filament\Actions;
 
 class SlipGajiHitung extends Page
 {
@@ -60,46 +62,122 @@ class SlipGajiHitung extends Page
 
     public function mount(): void
     {
-        $this->editingGajiId = request()->query('id') ?? request()->query('gaji_id') ?? request()->query('record');
-        $this->karyawan_id   = request()->query('karyawan_id');
-        $this->start_date    = request()->query('start_date');
-        $this->end_date      = request()->query('end_date');
+        $this->editingGajiId   = request()->query('id') ?? request()->query('gaji_id') ?? request()->query('record');
+        $this->karyawan_id     = request()->query('karyawan_id');
+        $this->start_date      = request()->query('start_date');
+        $this->end_date        = request()->query('end_date');
         $this->tipe_pembayaran = request()->query('tipe_pembayaran', $this->tipe_pembayaran);
 
         if ($this->editingGajiId) {
-            $gaji = Gaji::with('details')->findOrFail($this->editingGajiId);
-            $this->karyawan_id     = $gaji->id_karyawan;
-            $this->start_date      = $gaji->periode_awal->format('Y-m-d');
-            $this->end_date        = $gaji->periode_akhir->format('Y-m-d');
+            $gaji = \App\Models\Gaji::with('details')->findOrFail($this->editingGajiId);
+
+            $this->karyawan_id     = $gaji->id_karyawan;               // tetap pakai kode utk UI
+            $this->start_date      = $gaji->periode_awal->toDateString();
+            $this->end_date        = $gaji->periode_akhir->toDateString();
             $this->tipe_pembayaran = $gaji->tipe_pembayaran ?? 'payroll';
 
-            // penting: muat dari tabel gaji + gaji_details agar item manual tidak hilang
-            $this->loadExistingGaji($this->editingGajiId);
-            if (! $this->hydrateKasbonFromSlipPayments()) {
-                $this->computeKasbonAuto();
-            }
+            // ⬇️ hitung ulang → pasti ambil dari Rekap (strict)
+            $this->gaji_data = app(\App\Services\GajiService::class)->hitungGaji(
+                $this->karyawan_id, $this->start_date, $this->end_date, (int) $gaji->id
+            );
+
+            // bawa item manual lama saja (opsional)
+            $this->additional_items = $this->onlyAdditionalItems($gaji);
+
+            $this->autoAddDefaultDeductions();
+            $this->computeKasbonAuto();
             $this->calculateGrandTotal();
             return;
         }
 
         if ($this->start_date && $this->end_date && $this->karyawan_id) {
-            $this->hitungGaji();
+            $this->hitungGaji(); // ini juga sudah via service
         }
+    }
+
+
+
+    private function rekapLebihBaruDariSlip(Gaji $gaji): bool
+    {
+        $start = \Carbon\Carbon::parse($gaji->periode_awal)->toDateString();
+        $end   = \Carbon\Carbon::parse($gaji->periode_akhir)->toDateString();
+
+        $emp = \App\Models\Karyawan::where('id_karyawan', $gaji->id_karyawan)->first()
+            ?? \App\Models\Karyawan::find($gaji->id_karyawan);
+        if (! $emp) return false;
+
+        $ids = array_values(array_filter([(int) $emp->id, ctype_digit((string) $gaji->id_karyawan) ? (int) $gaji->id_karyawan : null]));
+
+        $rekap = \App\Models\AbsensiRekap::whereIn('karyawan_id', $ids)
+            ->whereDate('periode_awal', $start)
+            ->whereDate('periode_akhir', $end)
+            ->latest('updated_at')
+            ->first();
+
+        return $rekap ? $rekap->updated_at->gt($gaji->updated_at) : false;
+    }
+
+    private function onlyAdditionalItems(Gaji $gaji): array
+    {
+        $reserved = ['a','b','c','d','e','f','g','h','jml','grand'];
+        return $gaji->details->filter(function ($d) use ($reserved) {
+            return !in_array(strtolower($d->kode ?? ''), $reserved, true);
+        })->map(fn($d) => [
+            'no'             => $d->kode,
+            'keterangan'     => $d->keterangan,
+            'masuk'          => (float) ($d->masuk   ?? 0),
+            'faktor'         => (float) ($d->faktor  ?? 0),
+            'nominal_lembur' => (float) ($d->nominal ?? 0),
+            'total'          => (float) ($d->total   ?? 0),
+        ])->values()->all();
     }
 
     public function hitungGaji()
     {
-        $this->gaji_data = app(GajiService::class)->hitungGaji(
+        try {
+            $this->gaji_data = app(\App\Services\GajiService::class)->hitungGaji(
+                $this->karyawan_id, $this->start_date, $this->end_date
+            );
+
+            // $this->applyRekapToGajiData();
+            // $this->autoAddDefaultDeductions();
+            $this->computeKasbonAuto();
+            $this->calculateGrandTotal();
+
+        } catch (\DomainException $e) {
+            // kosongkan tampilan slip
+            $this->gaji_data = null;
+            $this->additional_items = [];
+            $this->sub_total = 0;
+
+            session()->flash('error', $e->getMessage());
+            return;
+        }
+    }
+    public function syncFromRekap(): void
+    {
+        if (!$this->karyawan_id || !$this->start_date || !$this->end_date) return;
+
+        $service = app(\App\Services\GajiService::class);
+
+        // kirim slipId supaya kasbon yang sudah tertaut ikut dihitung
+        $this->gaji_data = $service->hitungGaji(
             $this->karyawan_id,
             $this->start_date,
-            $this->end_date
+            $this->end_date,
+            (int) $this->editingGajiId
         );
 
+        // reset item manual & hitung ulang total
+        $this->additional_items = [];
         $this->autoAddDefaultDeductions();
         $this->computeKasbonAuto();
         $this->calculateGrandTotal();
+
+        session()->flash('success', 'Disinkronkan dari rekap terbaru.');
     }
 
+    
     public function loadGajiData(): void
     {
         if (!$this->karyawan_id || !$this->start_date || !$this->end_date) {
@@ -676,7 +754,6 @@ class SlipGajiHitung extends Page
     {
         // hanya kalau periode MENGANDUNG tanggal 1
         if (!$this->rangeIncludesDayOfMonth(1)) {
-            // kalau sebelumnya pernah auto-add BPJS, bersihkan lagi
             $this->removeBpjsAutoItems();
             return;
         }
@@ -684,7 +761,11 @@ class SlipGajiHitung extends Page
         $nominals = $this->gaji_data['nominals'] ?? [];
         $has = fn($k) => isset($nominals[$k]) && (float)$nominals[$k] > 0;
 
+        // selalu bersihkan dulu agar tidak dobel saat edit
+        $this->removeBpjsAutoItems();
+
         if ($has('bpjs_gabungan')) {
+            // push gabungan saja
             $this->pushAdditionalItemIfMissing('bpjs_gabungan');
         } else {
             if ($has('bpjs_kesehatan')) $this->pushAdditionalItemIfMissing('bpjs_kesehatan');
@@ -693,6 +774,7 @@ class SlipGajiHitung extends Page
 
         $this->calculateGrandTotal();
     }
+
 
     private function rangeIncludesDayOfMonth(int $day): bool
     {
@@ -719,34 +801,20 @@ class SlipGajiHitung extends Page
             'Potongan BPJS Kesehatan + TK',
         ];
         $this->additional_items = collect($this->additional_items)
-            ->reject(fn($it) => in_array($it['keterangan'] ?? '', $labels, true))
+            ->reject(function ($it) use ($labels) {
+                $kode = strtolower(trim($it['no'] ?? ''));
+                if (in_array($kode, ['k','l','m'], true)) {
+                    return true; // buang by KODE
+                }
+
+                $ket  = strtolower(trim($it['keterangan'] ?? ''));
+                // buang by LABEL (longgar: lowercase + trim)
+                return in_array($ket, $labels, true);
+            })
             ->values()
             ->all();
 
         $this->calculateGrandTotal();
-    }
-
-    private function overlapsFirstHalf(): bool
-    {
-        if (!$this->start_date || !$this->end_date) return false;
-
-        $start = Carbon::parse($this->start_date);
-        $end   = Carbon::parse($this->end_date);
-
-        if ($start->gt($end)) [$start, $end] = [$end, $start];
-
-        $cursor = $start->copy()->startOfMonth();
-        while ($cursor->lte($end)) {
-            $halfStart = $cursor->copy()->startOfMonth();
-            $halfEnd   = $cursor->copy()->startOfMonth()->day(15);
-
-            // cek overlap dua rentang: [start,end] vs [halfStart,halfEnd]
-            $overlap = $start->lte($halfEnd) && $end->gte($halfStart);
-            if ($overlap) return true;
-
-            $cursor->addMonth();
-        }
-        return false;
     }
     private function computeKasbonAuto(): void
     {
@@ -837,40 +905,17 @@ class SlipGajiHitung extends Page
         $this->gaji_data['kasbon_masuk']   = $unitsTotal;
         $this->gaji_data['kasbon_nominal'] = $total;
     }
-
-
-    private function overlapsSecondHalf(): bool
-    {
-        if (!$this->start_date || !$this->end_date) return false;
-
-        $start = \Carbon\Carbon::parse($this->start_date);
-        $end   = \Carbon\Carbon::parse($this->end_date);
-        if ($start->gt($end)) [$start, $end] = [$end, $start];
-
-        $cursor = $start->copy()->startOfMonth();
-        while ($cursor->lte($end)) {
-            $half2Start = $cursor->copy()->day(16)->startOfDay();
-            $half2End   = $cursor->copy()->endOfMonth()->endOfDay();
-
-            if ($start->lte($half2End) && $end->gte($half2Start)) return true;
-
-            $cursor->addMonth();
-        }
-        return false;
-    }
     private function firstBoundaryAfterLoan(\Carbon\Carbon $loanDate): \Carbon\Carbon
-{
-    $payday = $this->kasbonPayday(); // 1 atau 16
-    $sameMonthBoundary = $loanDate->copy()->day($payday)->startOfDay();
+    {
+        $payday = $this->kasbonPayday(); // 1 atau 16
+        $sameMonthBoundary = $loanDate->copy()->day($payday)->startOfDay();
 
-    // kalau loan dibuat SEBELUM boundary bulan itu → pakai boundary bulan itu,
-    // kalau loan dibuat PADA/SETELAH boundary → pakai boundary bulan berikutnya
-    return $loanDate->lt($sameMonthBoundary)
-        ? $sameMonthBoundary
-        : $sameMonthBoundary->copy()->addMonthNoOverflow();
-}
-
-
+        // kalau loan dibuat SEBELUM boundary bulan itu → pakai boundary bulan itu,
+        // kalau loan dibuat PADA/SETELAH boundary → pakai boundary bulan berikutnya
+        return $loanDate->lt($sameMonthBoundary)
+            ? $sameMonthBoundary
+            : $sameMonthBoundary->copy()->addMonthNoOverflow();
+    }
 
     private function overlappedPaydayBoundaries(): array
     {
@@ -916,90 +961,29 @@ class SlipGajiHitung extends Page
             ? '01–15 '   . $end->copy()->startOfMonth()->format('M Y')
             : '16–Akhir ' . $end->copy()->startOfMonth()->format('M Y');
     }
-    private function overlappedHalfBoundaries(): array
-    {
-        if (!$this->start_date || !$this->end_date) return [];
-
-        $start = Carbon::parse($this->start_date);
-        $end   = Carbon::parse($this->end_date);
-        if ($start->gt($end)) [$start, $end] = [$end, $start];
-
-        $cursor = $start->copy()->startOfMonth();
-        $out = [];
-
-        while ($cursor->lte($end)) {
-            $half2Start = $cursor->copy()->day(16)->startOfDay();
-            $half2End   = $cursor->copy()->endOfMonth()->endOfDay();
-
-            if ($start->lte($half2End) && $end->gte($half2Start)) {
-                $out[] = [
-                    'date'  => $half2Start->toDateString(), // pakai 16
-                    'label' => '16–Akhir ' . $half2Start->format('M Y'),
-                ];
-            }
-            $cursor->addMonth();
-        }
-        return $out;
-    }
-
-    private function firstKasbonBoundaryForLoan(\Carbon\Carbon $loanDate): \Carbon\Carbon
-    {
-        return $loanDate->day <= 15
-            ? $loanDate->copy()->day(16)->startOfDay()
-            : $loanDate->copy()->addMonthNoOverflow()->day(16)->startOfDay();
-    }
-
-
-    private function hydrateKasbonFromSlipPayments(?int $gajiId = null): bool
-    {
-        $id = $gajiId ?? $this->editingGajiId;
-        if (!$id) return false;
-
-        // 1) Prioritas: payment yang sudah tertaut ke slip ini
-        $pays = KasbonPayment::where('slip_gaji_id', $id)->get();
-
-        // 2) Kalau belum ada (slip lama tapi payment pernah dibuat manual),
-        //    ambil payment di range tanggal & karyawan ini, lalu tautkan.
-        if ($pays->isEmpty()) {
-            $existing = $this->fetchExistingKasbonPaymentsInRange();
-            if ($existing->isNotEmpty()) {
-                KasbonPayment::whereIn('id', $existing->pluck('id'))
-                    ->update(['slip_gaji_id' => $id, 'periode_label' => $this->kasbonPeriodeLabel()]);
-                $pays = $existing;
-            }
-        }
-
-        if ($pays->isEmpty()) return false;
-
-        $this->kasbon_loans = [];
-        $this->gaji_data['kasbon']         = 0.0;
-        $this->gaji_data['kasbon_masuk']   = 0;
-        $this->gaji_data['kasbon_faktor']  = 1;
-        $this->gaji_data['kasbon_nominal'] = 0.0;
-
-        foreach ($pays as $p) {
-            $this->gaji_data['kasbon']         += (float)$p->nominal;
-            $this->gaji_data['kasbon_nominal'] += (float)$p->nominal;
-            $this->gaji_data['kasbon_masuk']   += 1;
-
-            $this->kasbon_loans[] = [
-                'loan_id' => $p->kasbon_loan_id,
-                'unit'    => (float)$p->nominal,
-                'units'   => 1,
-                'amount'  => (float)$p->nominal,
-                'slots'   => [[
-                    'date'  => \Carbon\Carbon::parse($p->tanggal)->toDateString(),
-                    'label' => $p->periode_label ?? $this->kasbonPeriodeLabel(),
-                ]],
-            ];
-        }
-        return true;
-    }
-
     private function loanKaryawanId(): ?int
     {
         $emp = \App\Models\Karyawan::where('id_karyawan', $this->karyawan_id)->first();
         return $emp?->id;
     }
+    private function clearSlip()
+    {
+        $this->gaji_data = null;
+        $this->additional_items = [];
+        $this->sub_total = 0;
+    }
+    public function updatedStartDate()
+    {
+        $this->clearSlip();
+        $this->autoAddDefaultDeductions();
+        $this->calculateGrandTotal();
+    }
 
+    public function updatedEndDate()
+    {
+        $this->clearSlip();
+        $this->autoAddDefaultDeductions();
+        $this->calculateGrandTotal();
+    }
+    
 }

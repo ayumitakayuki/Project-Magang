@@ -33,4 +33,10 @@ class AbsensiRekap extends Model
         // IKUT MIGRATION: fk ke kolom 'id' di karyawans
         return $this->belongsTo(Karyawan::class, 'karyawan_id', 'id');
     }
+    public function scopeForPeriod($q, int $karyawanId, string $start, string $end) {
+        return $q->where('karyawan_id', $karyawanId)
+                ->whereDate('periode_awal', $start)
+                ->whereDate('periode_akhir', $end)
+                ->latest('updated_at');
+    }
 }

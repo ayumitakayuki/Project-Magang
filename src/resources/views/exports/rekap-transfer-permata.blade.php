@@ -98,8 +98,8 @@
 <h2>{{ $bank }} — TRANSFER PERMATA</h2>
 <div class="meta">
     Periode: <strong>{{ $periode }}</strong>
-    &nbsp; • &nbsp; Lokasi: {{ $lokasi }}
-    &nbsp; • &nbsp; Proyek: {{ $proyek }}
+    {{-- &nbsp; • &nbsp; Lokasi: {{ $lokasi }}
+    &nbsp; • &nbsp; Proyek: {{ $proyek }} --}}
     &nbsp; • &nbsp; Gaji 01–15: {{ $labelGaji15Short }} &nbsp;•&nbsp; Gaji 16–31: {{ $labelGaji16Short }}
 </div>
 
@@ -107,10 +107,10 @@
     {{-- widths: No & No ID kecil, lainnya disesuaikan --}}
     <colgroup>
         <col style="width:18px">   {{-- No --}}
-        <col style="width:40px">   {{-- No ID --}}
-        <col style="width:72px">   {{-- Bagian --}}
-        <col style="width:60px">   {{-- Lokasi --}}
-        <col style="width:94px">   {{-- Proyek --}}
+        {{-- <col style="width:40px">   
+        <col style="width:72px">   
+        <col style="width:60px">   
+        <col style="width:94px">    --}}
         <col style="width:auto">   {{-- Nama (fleksibel) --}}
         <col style="width:82px">   {{-- Pembulatan --}}
         <col style="width:72px">   {{-- Kasbon --}}
@@ -122,10 +122,10 @@
     <thead>
         <tr>
             <th class="nowrap">No</th>
-            <th class="nowrap">No ID</th>
+            {{-- <th class="nowrap">No ID</th>
             <th class="nowrap">Bagian</th>
             <th class="nowrap">Lokasi</th>
-            <th class="nowrap">Proyek</th>
+            <th class="nowrap">Proyek</th> --}}
             <th class="nowrap">Nama</th>
             <th class="num nowrap">Pembulatan</th>
             <th class="num nowrap">Kasbon</th>
@@ -141,10 +141,10 @@
         @forelse ($rows as $i => $r)
             <tr>
                 <td class="nowrap">{{ $i + 1 }}</td>
-                <td class="nowrap">{!! __h($r['no_id'] ?? '') !!}</td>
+                {{-- <td class="nowrap">{!! __h($r['no_id'] ?? '') !!}</td>
                 <td class="cut">{!! __h($r['bagian'] ?? '') !!}</td>
                 <td class="cut">{!! __h($r['lokasi'] ?? '') !!}</td>
-                <td class="cut">{!! __h($r['project'] ?? '') !!}</td>
+                <td class="cut">{!! __h($r['project'] ?? '') !!}</td> --}}
                 <td class="cut">{!! __h($r['nama'] ?? '') !!}</td>
                 <td class="num nowrap">Rp {{ number_format((float)($r['pembulatan'] ?? 0), 0, ',', '.') }}</td>
                 <td class="num nowrap">Rp {{ number_format((float)($r['kasbon'] ?? 0), 0, ',', '.') }}</td>
@@ -154,7 +154,7 @@
             </tr>
         @empty
             <tr>
-                <td colspan="11" style="text-align:center; padding:10px;">Tidak ada data pada periode ini.</td>
+                <td colspan="7" style="text-align:center; padding:10px;">Tidak ada data pada periode ini.</td>
             </tr>
         @endforelse
     </tbody>
@@ -162,7 +162,7 @@
     @if (!empty($rows))
     <tfoot>
         <tr class="totals">
-            <td colspan="6" class="num" style="text-align:right; padding-right:10px;">
+            <td colspan="2" class="num" style="text-align:right; padding-right:10px;">
                 TOTAL
             </td>
             <td class="num">Rp {{ number_format((float)($totals['pembulatan'] ?? 0), 0, ',', '.') }}</td>

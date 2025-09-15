@@ -7,83 +7,56 @@
                 Anda sedang mengedit rekap absensi yang sudah tersimpan.
             </div>
         @endif
-        <form id="rekap-form" method="GET" wire:submit.prevent="filter" class="mb-6 flex flex-wrap items-center gap-2">
-            {{-- KARYAWAN (Tom Select, bisa ketik di dropdown) --}}
-            <div id="karyawan_select_wrap" class="w-72" wire:ignore>
-            <select id="karyawan_select" placeholder="Select an option">
-                <option value="">Select an option</option>
-                @foreach ($all_karyawan ?? [] as $k)
-                <option value="{{ $k->id_karyawan }}">{{ strtolower($k->nama) }}</option>
-                @endforeach
-            </select>
-            </div>
+        <form id="rekap-form" method="GET" wire:submit.prevent="filter"
+            class="mb-6 flex flex-wrap items-center gap-2">
 
-            {{-- hidden utk sync --}}
-            <input type="hidden" name="selected_id"   id="selected_id"   wire:model.defer="selected_id"   value="{{ request('selected_id') }}">
-            <input type="hidden" name="selected_name" id="selected_name" wire:model.defer="selected_name" value="{{ request('selected_name') }}">
+        {{-- KARYAWAN (Tom Select) --}}
+        <div id="karyawan_select_wrap"
+            class="w-72"
+            wire:ignore
+            x-data="karyawanSelect()"
+            x-init="$nextTick(() => init())">
+        <select x-ref="sel" id="karyawan_select" placeholder="Select an option">
+            <option value="">Select an option</option>
+            @foreach ($all_karyawan ?? [] as $k)
+            <option value="{{ $k->id_karyawan }}">{{ $k->nama }}</option>
+            @endforeach
+        </select>
+        </div>
 
-            <select name="status_karyawan" wire:model.defer="status_karyawan"
-                class="rounded-lg px-3 py-1 bg-blue-200 text-sm border border-blue-500">
-                <option value="all" {{ request('status_karyawan') == 'all' ? 'selected' : '' }}>
-                    Show All
-                </option>
-                <option value="staff" {{ request('status_karyawan') == 'staff' ? 'selected' : '' }}>
-                    Staff
-                </option>
-                <option value="harian tetap" {{ request('status_karyawan') == 'harian tetap' ? 'selected' : '' }}>
-                    Harian Tetap
-                </option>
-                <option value="harian lepas" {{ request('status_karyawan') == 'harian lepas' ? 'selected' : '' }}>
-                    Harian Lepas
-                </option>
-            </select>
+        <input type="hidden" id="selected_id"   name="selected_id"   wire:model="selected_id">
+        <input type="hidden" id="selected_name" name="selected_name" wire:model="selected_name">
 
-            {{-- Lokasi --}}
-            <select name="lokasi" wire:model.defer="selected_lokasi"
-                class="rounded-lg px-3 py-1 bg-blue-200 text-sm">
-                <option value="">Lokasi</option>
-                @foreach ($lokasi_options as $lokasi)
-                    <option value="{{ $lokasi }}" {{ request('lokasi') == $lokasi ? 'selected' : '' }}>
-                        {{ ucfirst($lokasi) }}
-                    </option>
-                @endforeach
-            </select>
+        <select name="status_karyawan" wire:model="status_karyawan"
+        class="rounded-lg px-3 py-1 bg-blue-200 text-sm border border-blue-500">
+        <option value="all">Show All</option>
+        <option value="staff">Staff</option>
+        <option value="harian tetap">Harian Tetap</option>
+        <option value="harian lepas">Harian Lepas</option>
+        </select>
 
-            {{-- Proyek --}}
-            <select name="proyek" wire:model.defer="selected_proyek"
-                class="rounded-lg px-3 py-1 bg-blue-200 text-sm">
-                <option value="">Proyek</option>
-                @foreach ($proyek_options as $proyek)
-                    <option value="{{ $proyek }}" {{ request('proyek') == $proyek ? 'selected' : '' }}>
-                        {{ $proyek }}
-                    </option>
-                @endforeach
-            </select>
+        <select name="lokasi" wire:model="selected_lokasi" class="rounded-lg px-3 py-1 bg-blue-200 text-sm">
+        <option value="">Lokasi</option>
+        @foreach ($lokasi_options as $lokasi)
+            <option value="{{ $lokasi }}">{{ ucfirst($lokasi) }}</option>
+        @endforeach
+        </select>
 
-            {{-- Tanggal --}}
-            <input
-                type="text"
-                id="start_date"
-                name="start_date"
-                wire:model.defer="start_date"
-                value="{{ request('start_date') ?? now()->subMonth()->toDateString() }}"
-                class="rounded-lg px-3 py-1 bg-blue-200 text-sm"
-                placeholder="Start Date"
-            />
-            <span>-</span>
-            <input
-                type="text"
-                id="end_date"
-                name="end_date"
-                wire:model.defer="end_date"
-                value="{{ request('end_date') ?? now()->toDateString() }}"
-                class="rounded-lg px-3 py-1 bg-blue-200 text-sm"
-                placeholder="End Date"
-            />    
+        <select name="proyek" wire:model="selected_proyek" class="rounded-lg px-3 py-1 bg-blue-200 text-sm">
+        <option value="">Proyek</option>
+        @foreach ($proyek_options as $proyek)
+            <option value="{{ $proyek }}">{{ $proyek }}</option>
+        @endforeach
+        </select>
+
+        <input type="text" id="start_date" name="start_date" wire:model="start_date"
+        class="rounded-lg px-3 py-1 bg-blue-200 text-sm" placeholder="Start Date" />
+        <span>-</span>
+        <input type="text" id="end_date" name="end_date" wire:model="end_date"
+        class="rounded-lg px-3 py-1 bg-blue-200 text-sm" placeholder="End Date" />
+ 
             {{-- Tombol Aksi --}}
-            <x-filament::button type="submit">
-                Filter
-            </x-filament::button>
+            <x-filament::button type="submit">Filter</x-filament::button>
             <x-filament::button type="button" color="success" wire:click="simpan">
                 Simpan ke Database
             </x-filament::button>
@@ -409,76 +382,90 @@
 @endpush
 
 @push('styles')
-    {{-- sudah ada flatpickr css --}}
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css">
-@endpush
-
-@push('styles')
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css">
-@endpush
-
-@push('styles')
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css">
-@endpush
-
-@push('styles')
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css">
-@endpush
-
-@push('styles')
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css">
 @endpush
 
 @push('scripts')
-  <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      const el = document.getElementById('karyawan_select');
-      if (!el) return;
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script>
+(function () {
+  // Inisialisasi yang kuat: coba terus sampai elemen & lib siap
+  function initTomSelect() {
+    const el = document.getElementById('karyawan_select');
+    if (!el || el.tomselect || !window.TomSelect) return;
 
-      const ts = new TomSelect(el, {
-        create: false,
-        maxOptions: 500,
-        placeholder: 'Select an option',
-        plugins: ['dropdown_input','clear_button'],
-        allowEmptyOption: true,
-        searchField: ['text'],
-        copyClassesToDropdown: false,
-      });
-
-      // nilai awal dari server
-      const preset = document.getElementById('selected_id')?.value;
-      if (preset) ts.setValue(preset, true);
-
-      // sinkron ke Livewire
-      function syncHidden(id, name) {
-        const idEl = document.getElementById('selected_id');
-        const nmEl = document.getElementById('selected_name');
-        idEl.value = id || '';
-        nmEl.value = name || '';
-        idEl.dispatchEvent(new Event('input',  { bubbles: true }));
-        nmEl.dispatchEvent(new Event('input',  { bubbles: true }));
-        idEl.dispatchEvent(new Event('change', { bubbles: true }));
-        nmEl.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-
-      el.addEventListener('change', function () {
-        const id   = el.value;
-        const name = id ? el.options[el.selectedIndex].text : '';
-        syncHidden(id, name);
-      });
-
-      ts.on('clear', () => syncHidden('', ''));
+    const ts = new TomSelect(el, {
+      create:false,
+      maxOptions:500,
+      placeholder:'Select an option',
+      plugins:['dropdown_input','clear_button'],
+      allowEmptyOption:true,
+      searchField:['text'],
+      copyClassesToDropdown:false,
     });
-  </script>
+
+    // tandai siap -> CSS menyembunyikan select asli
+    el.setAttribute('data-ts-ready', '1');
+
+    // Sinkron ke Livewire via hidden inputs (tanpa Alpine)
+    const hiddenId   = document.getElementById('selected_id');
+    const hiddenName = document.getElementById('selected_name');
+    const form       = document.getElementById('rekap-form');
+
+    el.addEventListener('change', () => {
+      const id = el.value || '';
+      if (hiddenId)   { hiddenId.value = id;   hiddenId.dispatchEvent(new Event('input', {bubbles:true})); }
+      if (hiddenName) { hiddenName.value = ''; hiddenName.dispatchEvent(new Event('input', {bubbles:true})); }
+
+      // Update query string tanpa reload
+      const params = new URLSearchParams(new FormData(form));
+      if (id) { params.set('selected_id', id); params.delete('selected_name'); }
+      else    { params.delete('selected_id');  params.delete('selected_name'); }
+      history.replaceState({}, '', `${location.pathname}?${params.toString()}`);
+
+      // Jalankan filter (wire:submit.prevent akan menangkap)
+      form.dispatchEvent(new Event('submit', { bubbles:true }));
+    });
+
+    ts.on('clear', () => {
+      if (hiddenId)   { hiddenId.value = ''; hiddenId.dispatchEvent(new Event('input', {bubbles:true})); }
+      if (hiddenName) { hiddenName.value = ''; hiddenName.dispatchEvent(new Event('input', {bubbles:true})); }
+
+      const params = new URLSearchParams(new FormData(form));
+      params.delete('selected_id'); params.delete('selected_name');
+      history.replaceState({}, '', `${location.pathname}?${params.toString()}`);
+
+      form.dispatchEvent(new Event('submit', { bubbles:true }));
+    });
+
+    // Preset dari hidden jika ada
+    const preset = hiddenId?.value;
+    if (preset) ts.setValue(preset, true);
+  }
+
+  // Coba beberapa kali sampai siap (hindari “harus refresh”)
+  let tries = 0;
+  const boot = () => {
+    initTomSelect();
+    if (!document.getElementById('karyawan_select')?.tomselect && tries++ < 40) {
+      setTimeout(boot, 50); // total ±2s retry window
+    }
+  };
+  document.addEventListener('DOMContentLoaded', boot);
+  window.addEventListener('livewire:navigated', boot);     // untuk Filament Navigate / SPA
+  window.addEventListener('filament:page-rendered', boot); // untuk render ulang Filament
+})();
+</script>
 @endpush
 
 @push('styles')
   {{-- Tom Select CSS (cukup 1x di halaman ini) --}}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css">
-
   <style>
-    /* === CSS tabel kamu (biarkan seperti ini) === */
+    #karyawan_select[data-ts-ready="1"]{
+        position:absolute !important; left:-9999px; width:1px; height:1px;
+        overflow:hidden; opacity:0; pointer-events:none;
+    }
     .custom-table {
       border-collapse: collapse;
       width: auto;
@@ -508,34 +495,18 @@
     }
 
     #karyawan_select_wrap .ts-wrapper.single .ts-control{
-    background-color:#fff;  /* bg-blue-200 */
-    border:1px solid #111827;  /* border-blue-500 */
-    border-radius:.5rem;        /* rounded-lg */
-    padding:.25rem .75rem;      /* py-1 px-3 */
-    font-size:.875rem;          /* text-sm */
-    line-height:1.25rem;
-    color:#111827;              /* gray-900 */
-    min-height:2rem;
-    box-shadow:none;
-    }
-    #karyawan_select_wrap .ts-wrapper.single .ts-control:hover{ border-color:#111827; } /* hover */
-
-    /* Tombol X di KANAN */
-    #karyawan_select_wrap .ts-wrapper .ts-control{ position:relative; padding-right:2rem; }
-    #karyawan_select_wrap .ts-wrapper .clear-button{
-    position:absolute !important;
-    right:.5rem; top:50%; transform:translateY(-50%);
-    padding:0 .25rem; opacity:.7; z-index:2;
-    }
-    #karyawan_select_wrap .ts-wrapper .clear-button:hover{ opacity:1; }
-
-    /* Biar teks/input tidak ketimpa X */
-    #karyawan_select_wrap .ts-wrapper .ts-control > input{ padding-right:2rem; }
-    #karyawan_select_wrap .ts-wrapper.single .ts-control .item{
-    padding-right:1.5rem; background:transparent; color:#111827;
-    }
-
-    /* (opsional) hilangkan caret bawaan Tom Select agar makin mirip */
-    #karyawan_select_wrap .ts-wrapper.single .ts-control::after{ display:none; }
+    background:#fff; border:1px solid #111827; border-radius:.5rem;
+    padding:.25rem .75rem; font-size:.875rem; line-height:1.25rem;
+    min-height:2rem; color:#111827; box-shadow:none; position:relative; padding-right:2rem;
+  }
+  #karyawan_select_wrap .ts-wrapper.single .ts-control:hover{ border-color:#111827; }
+  #karyawan_select_wrap .ts-wrapper .clear-button{
+    position:absolute !important; right:.5rem; top:50%; transform:translateY(-50%);
+    opacity:.7; z-index:2;
+  }
+  #karyawan_select_wrap .ts-wrapper .clear-button:hover{ opacity:1; }
+  #karyawan_select_wrap .ts-wrapper .ts-control > input{ padding-right:2rem; }
+  #karyawan_select_wrap .ts-wrapper.single .ts-control .item{ padding-right:1.5rem; background:transparent; }
+  #karyawan_select_wrap .ts-wrapper.single .ts-control::after{ display:none; }
 </style>
 @endpush

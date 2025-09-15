@@ -17,74 +17,88 @@ class GajiService
      */
     public function hitungGaji($id_karyawan, string $periode_awal, string $periode_akhir, ?int $slipId = null): array
     {
-        // 1) Tetap: ambil karyawan via KODE (sesuai permintaan)
         $karyawan = Karyawan::where('id_karyawan', $id_karyawan)->firstOrFail();
 
-        // 2) Rentang tanggal inclusive
         $start = Carbon::parse($periode_awal)->startOfDay();
         $end   = Carbon::parse($periode_akhir)->endOfDay();
 
-        // 3) Status & nominal dasar
         $isHarianLepas = strtolower((string) $karyawan->status) === 'harian lepas';
         $gaji_setengah_bulan = $isHarianLepas
             ? (float) ($karyawan->gaji_harian ?? 0)
             : (float) ($karyawan->gaji_setengah_bulan ?? 0);
 
-        // 4) Ambil REKAP
-        //    - prioritaskan exact match periode
-        //    - kalau tidak ada, ambil rekap yang MENCakup rentang
-        //    - kalau masih tidak ada, ambil yang overlap
-        //    - dukung legacy (karyawan_id = id_karyawan) & skema baru (karyawan_id = id)
-        $rekapIds = [$karyawan->id]; // PK numerik
-        // kalau kode-nya angka (legacy), tambahkan sebagai kandidat juga
-        if (ctype_digit((string) $karyawan->id_karyawan)) {
-            $rekapIds[] = (int) $karyawan->id_karyawan;
-        }
+        // helper kecil: "6,5" -> 6.5
+        $toF = fn($v) => (float) str_replace(',', '.', (string) ($v ?? 0));
 
-        $rekap = AbsensiRekap::query()
-            ->whereIn('karyawan_id', $rekapIds)
-            ->whereDate('periode_awal',  $start->toDateString())
-            ->whereDate('periode_akhir', $end->toDateString())
-            ->first();
+        // kandidat identitas di tabel rekap
+        $argId = $id_karyawan;
+        $ids = [];
+        if (ctype_digit((string) $argId)) $ids[] = (int) $argId;         // legacy
+        if (isset($karyawan->id))         $ids[] = (int) $karyawan->id;  // PK baru
 
+        $nama  = $karyawan->nama;
+        $awal  = $start->toDateString();
+        $akhir = $end->toDateString();
+
+        // ---------- (4a–4d) cari rekap ----------
+        $awal  = $start->toDateString();
+        $akhir = $end->toDateString();
+
+        /** 1) Cari rekap **STRICT**: karyawan PK + periode exact-match */
+        $rekap = $this->findRekapStrict($karyawan, $awal, $akhir);
+
+        /** 2) Kalau belum ada, coba buat & simpan rekap lalu ambil lagi */
         if (!$rekap) {
-            $rekap = AbsensiRekap::query()
-                ->whereIn('karyawan_id', $rekapIds)
-                ->whereDate('periode_awal',  '<=', $start->toDateString())
-                ->whereDate('periode_akhir', '>=', $end->toDateString())
-                ->orderByDesc('periode_akhir')
-                ->first();
+            try {
+                app(\App\Services\AbsensiRekapService::class)
+                    ->rekapUntukUser($karyawan->nama, $awal, $akhir, true); // persist
+            } catch (\Throwable $e) {
+                // abaikan, tetap cek lagi
+            }
+            $rekap = $this->findRekapStrict($karyawan, $awal, $akhir);
         }
 
+        /** 3) Jika tetap tidak ada → hentikan */
         if (!$rekap) {
-            $rekap = AbsensiRekap::query()
-                ->whereIn('karyawan_id', $rekapIds)
-                ->where(function ($q) use ($start, $end) {
-                    $q->whereBetween('periode_awal',  [$start->toDateString(), $end->toDateString()])
-                      ->orWhereBetween('periode_akhir', [$start->toDateString(), $end->toDateString()]);
-                })
-                ->orderByDesc('periode_akhir')
-                ->first();
+            throw new \DomainException("Rekap absensi periode $awal s/d $akhir belum tersedia. Simpan rekap dulu.");
         }
 
-        // 5) Ekstrak nilai rekap (0 jika tidak ada)
-        $sj         = (float) ($rekap->sj          ?? 0);
-        $sabtu      = (float) ($rekap->sabtu       ?? 0);
-        $minggu     = (float) ($rekap->minggu      ?? 0);
-        $hari_besar = (float) ($rekap->hari_besar  ?? 0);
 
-        $sisaSj     = (float) ($rekap->sisa_sj            ?? 0);
-        $sisaSabtu  = (float) ($rekap->sisa_sabtu         ?? 0);
-        $sisaMinggu = (float) ($rekap->sisa_minggu        ?? 0);
-        $sisaHB     = (float) ($rekap->sisa_hari_besar    ?? 0);
+        // ---------- GUARD: kalau tidak ada rekap & tidak ada absensi, stop ----------
+        if (!$rekap) {
+            $exists = Absensi::query()
+                ->whereDate('tanggal', '>=', $awal)
+                ->whereDate('tanggal', '<=', $akhir)
+                ->when(Schema::hasColumn('absensis','karyawan_id'), fn($q)=>$q->where('karyawan_id',$karyawan->id))
+                ->when(!Schema::hasColumn('absensis','karyawan_id') && Schema::hasColumn('absensis','id_karyawan'),
+                    fn($q)=>$q->where('id_karyawan',$karyawan->id_karyawan),
+                    fn($q)=>$q->where('name',$karyawan->nama))
+                ->exists();
 
-        // tambah sisa sesuai kebijakan kamu
+            if (!$exists) {
+                throw new \DomainException('Tidak ada rekap atau absensi pada periode ini.');
+            }
+        }
+        // ---------- /GUARD ----------
+
+        // 5) Ekstrak angka rekap (pakai toF agar "6,5" terbaca)
+        $toF = fn($v) => (float) str_replace(',', '.', (string) ($v ?? 0));
+
+        $sj          = $toF($rekap->sj          ?? 0);
+        $sabtu       = $toF($rekap->sabtu       ?? 0);
+        $minggu      = $toF($rekap->minggu      ?? 0);
+        $hari_besar  = $toF($rekap->hari_besar  ?? 0);
+        $jumlah_hari = $toF($rekap->jumlah_hari ?? 0);
+        $tidak_masuk = $toF($rekap->tidak_masuk ?? 0);
+
+        /** utamakan sisa_jam (fallback ke sisa_sj untuk data lama) */
+        $sisaJam     = $toF($rekap->sisa_jam ?? $rekap->sisa_sj ?? 0);
+        $sisaSabtu   = $toF($rekap->sisa_sabtu ?? 0);
+        $sisaMinggu  = $toF($rekap->sisa_minggu ?? 0);
+        $sisaHB      = $toF($rekap->sisa_hari_besar ?? 0);
         $sabtu      += $sisaSabtu;
         $minggu     += $sisaMinggu;
         $hari_besar += $sisaHB;
-
-        $jumlah_hari = (float) ($rekap->jumlah_hari ?? 0);
-        $tidak_masuk = (float) ($rekap->tidak_masuk ?? 0);
 
         // 6) Faktor & tarif
         $faktorSj        = (float) ($karyawan->faktor_sj         ?? 0);
@@ -96,35 +110,7 @@ class GajiService
         $nominal_per_jam_normal = $upah_per_hari / 8;
         $nominal_per_jam_lembur = (float) ($karyawan->gaji_lembur ?? $nominal_per_jam_normal);
 
-        // 7) Fallback kalau tidak ada rekap → hitung dari ABSENSI
-        //    (tanpa butuh kolom karyawan_id; pakai yang ada)
-        if (!$rekap) {
-            $absensiQuery = Absensi::query()
-                ->whereDate('tanggal', '>=', $start->toDateString())
-                ->whereDate('tanggal', '<=', $end->toDateString());
-
-            if (Schema::hasColumn('absensis', 'karyawan_id')) {
-                $absensiQuery->where('karyawan_id', $karyawan->id);
-            } elseif (Schema::hasColumn('absensis', 'id_karyawan')) {
-                $absensiQuery->where('id_karyawan', $karyawan->id_karyawan);
-            } else {
-                // skema lama: by nama
-                $absensiQuery->where('name', $karyawan->nama);
-            }
-
-            $absensi = $absensiQuery->get();
-
-            $jumlah_hari = 0;
-            foreach ($absensi as $a) {
-                if (!empty($a->masuk_pagi) && !empty($a->pulang_kerja)) {
-                    $jumlah_hari++;
-                }
-            }
-            // NOTE: kalau kamu simpan detil jam lembur di Absensi,
-            //       agregasikan di sini juga (sekarang dibiarkan 0 kalau tidak ada rekap).
-        }
-
-        // 8) Hitung total komponen
+        // 8) Hitung total
         $lembur_senin_jumat_total = $sj        * $faktorSj       * $nominal_per_jam_lembur;
         $lembur_sabtu_total       = $sabtu     * $faktorSabtu    * $nominal_per_jam_lembur;
         $lembur_minggu_total      = $minggu    * $faktorMinggu   * $nominal_per_jam_lembur;
@@ -200,21 +186,19 @@ class GajiService
 
             // Potongan
             'potongan_tidak_masuk_masuk'   => $tidak_masuk,
-            'potongan_tidak_masuk_nominal' => $nominal_per_jam_normal,
-            'potongan_tidak_masuk_total'   => $tidak_masuk * $nominal_per_jam_normal,
+            'potongan_tidak_masuk_nominal' => $nominal_per_jam_lembur,
+            'potongan_tidak_masuk_total'   => $tidak_masuk * $nominal_per_jam_lembur,
 
-            'potongan_tidak_disiplin_masuk'   => $sisaSj,
-            'potongan_tidak_disiplin_nominal' => (float) ($karyawan->gaji_lembur ?? 0),
-            'potongan_tidak_disiplin_total'   => $sisaSj * (float) ($karyawan->gaji_lembur ?? 0),
+            'potongan_tidak_disiplin_masuk'   => $sisaJam,
+            'potongan_tidak_disiplin_nominal' => $nominal_per_jam_lembur,
+            'potongan_tidak_disiplin_total'   => $sisaJam * $nominal_per_jam_lembur,
 
             'total_lembur' => $total_lembur,
             'total_gaji'   => $total_gaji,
 
             'kasbon_total' => $kasbon_total,
             'kasbon_items' => $kasbon_items,
-            $total_gaji_bersih = $total_gaji - $kasbon_total,
-
-
+            'total_gaji_bersih'  => $total_gaji - $kasbon_total,
 
             // Harga2 tambahan yg dipakai autoAddDefaultDeductions()
             'nominals' => [
@@ -240,6 +224,15 @@ class GajiService
                 'slip_gaji_id'  => $slipId,
                 'periode_label' => \Carbon\Carbon::parse($awal)->format('d M Y') . ' - ' . \Carbon\Carbon::parse($akhir)->format('d M Y'),
             ]);
+    }
+    private function findRekapStrict(\App\Models\Karyawan $karyawan, string $awal, string $akhir): ?\App\Models\AbsensiRekap
+    {
+        return \App\Models\AbsensiRekap::query()
+            ->where('karyawan_id', $karyawan->id)   // ⚠️ PK karyawans.id
+            ->whereDate('periode_awal',  $awal)
+            ->whereDate('periode_akhir', $akhir)
+            ->orderByDesc('updated_at')
+            ->first();
     }
 
 }

@@ -20,7 +20,7 @@ use App\Models\RekapTransferPermata as RekapTransferPermataModel;
 use App\Models\KasbonLoan;
 use App\Models\KasbonPayment;
 use Illuminate\Support\Facades\Log;
-
+use Illuminate\Support\Str;
 
 class RekapTransferPermata extends Page implements HasForms
 {
@@ -29,7 +29,7 @@ class RekapTransferPermata extends Page implements HasForms
     protected static ?string $title = 'Rekap Transfer Permata';
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
     protected static string $view = 'filament.pages.rekap-transfer-permata';
-
+    public ?string $search = null;
     public ?string $start_date = null;
     public ?string $end_date   = null;
     public array $rows = [];
@@ -45,9 +45,10 @@ class RekapTransferPermata extends Page implements HasForms
     }
     public function mount(): void
     {
+
         $this->start_date = request('start_date');
         $this->end_date   = request('end_date');
-
+        $this->search = request('search');
         $this->form->fill([
             'start_date' => $this->start_date,
             'end_date'   => $this->end_date,
@@ -75,6 +76,16 @@ class RekapTransferPermata extends Page implements HasForms
                         Forms\Components\DatePicker::make('end_date')
                             ->label('Periode Akhir')
                             ->native(false),
+                        Forms\Components\TextInput::make('search')
+                            ->label('Search')
+                            ->placeholder('Cari nama / ID / bagian / lokasi / proyek')
+                            ->suffixIcon('heroicon-m-magnifying-glass')
+                            ->live(debounce: 600) // auto-filter saat ngetik
+                            ->afterStateUpdated(function ($state) {
+                                $this->search = $state;
+                                $this->loadRows(); // refresh tampilan
+                            })
+                            ->columnSpan(['default' => 1, 'md' => 2]),
 
                         Forms\Components\Actions::make([
                             Forms\Components\Actions\Action::make('apply')
@@ -119,7 +130,7 @@ class RekapTransferPermata extends Page implements HasForms
 
         $this->start_date = $start;
         $this->end_date   = $end;
-
+        $this->search = $state['search'] ?? null;
         $this->loadRows();
 
         // Simpan hanya jika periode dipilih lengkap
@@ -144,18 +155,153 @@ class RekapTransferPermata extends Page implements HasForms
         // ✅ ambil statistik kasbon berbasis SQL (robust)
         $kasbonByEmp = $this->getKasbonStatsForRange($this->start_date, $this->end_date);
         $codeToPk    = $this->buildEmpCodeToPkMap($this->rows);
+        $slipTotals = $this->getSlipTotalsForRange($this->start_date, $this->end_date);
 
-        $this->rows = collect($this->rows)->map(function ($r) use ($kasbonByEmp, $codeToPk) {
+        $this->rows = collect($this->rows)->map(function ($r) use ($kasbonByEmp, $codeToPk, $slipTotals) {
+
+            // --- identifikasi PK & kode ---
             $empPk = $this->resolveEmpPk($r, $codeToPk, $kasbonByEmp);
+            $kode  = $r['id_karyawan'] ?? $r['no_id'] ?? null;
+            $nama  = isset($r['nama']) ? mb_strtolower(trim((string)$r['nama'])) : null;
 
-            $stats = $empPk !== null
-                ? ($kasbonByEmp[$empPk] ?? ['kasbon' => 0, 'sisa_kasbon' => 0])
-                : ['kasbon' => 0, 'sisa_kasbon' => 0];
+            // --- cari slip: by kode -> by pk -> by nama ---
+            $fromSlip = null;
+            if ($kode && isset($slipTotals['kode:'.(string)$kode])) {
+                $fromSlip = $slipTotals['kode:'.(string)$kode];
+            } elseif ($empPk && isset($slipTotals['pk:'.$empPk])) {
+                $fromSlip = $slipTotals['pk:'.$empPk];
+            } elseif ($nama && isset($slipTotals['name:'.$nama])) {
+                $fromSlip = $slipTotals['name:'.$nama];
+            }
 
-            $r['kasbon']      = (int) $stats['kasbon'];
-            $r['sisa_kasbon'] = (int) $stats['sisa_kasbon'];
+            // --- kasbon/sisa default dari SQL (fallback) ---
+            $stats  = $empPk !== null ? ($kasbonByEmp[$empPk] ?? ['kasbon'=>0,'sisa_kasbon'=>0])
+                                    : ['kasbon'=>0,'sisa_kasbon'=>0];
+
+            // === TOTAL GAJI (gross) ===
+            // 1) pakai subtotal slip jika ada
+            // 2) Fallback: pakai gaji_16_31 / gaji_15_31 / total_gaji di row (di-parse)
+            $gross = $fromSlip
+                ? (float) $fromSlip['subtotal']
+                : ($this->parseMoney($r['gaji_16_31'] ?? null)
+                ?: $this->parseMoney($r['gaji_15_31'] ?? null)
+                ?: $this->parseMoney($r['total_gaji'] ?? null));
+
+            // === FIX UTAMA: pembulatan = TOTAL GAJI (gross) ===
+            $r['pembulatan'] = (float) $gross;
+
+            // Kasbon: kalau slip ada, ikut slip; kalau tidak, fallback dari agregasi SQL
+            $kasbon = $fromSlip ? (float) $fromSlip['kasbon'] : (float) ($stats['kasbon'] ?? 0);
+
+            // Transfer/net: kalau slip ada pakai grand; kalau tidak: gross - kasbon
+            $transfer = $fromSlip ? (float) $fromSlip['grand'] : max(0.0, $gross - $kasbon);
+
+            // Tulis balik
+            $r['kasbon']      = $kasbon;
+            $r['sisa_kasbon'] = (int) ($stats['sisa_kasbon'] ?? 0);
+            $r['transfer']    = $transfer;
+
+            // (opsional) simpan gross eksplisit untuk audit
+            $r['total_gaji']  = $gross;
+
             return $r;
         })->values()->all();
+        // ---- Filter Search (client-side) ----
+        if ($this->search && is_string($this->search)) {
+            $term = Str::of($this->search)->lower()->trim()->value();
+
+            $this->rows = collect($this->rows)->filter(function ($r) use ($term) {
+                $haystacks = [
+                    $r['nama']        ?? '',
+                    $r['id_karyawan'] ?? '',
+                    $r['no_id']       ?? '',
+                    $r['bagian']      ?? '',
+                    $r['lokasi']      ?? '',
+                    $r['project']     ?? ($r['proyek'] ?? ''),
+                ];
+
+                // gabung dan bandingkan lowercase
+                $hay = Str::of(implode(' ', $haystacks))->lower()->value();
+                return Str::contains($hay, $term);
+            })->values()->all();
+        }
+
+    }
+    private function getSlipTotalsForRange(?string $startDate, ?string $endDate): array
+    {
+        if (!$startDate || !$endDate) return [];
+
+        $slips = \App\Models\Gaji::query()
+            ->with('details')
+            ->whereDate('periode_awal',  $startDate)
+            ->whereDate('periode_akhir', $endDate)
+            // ->where('tipe_pembayaran','payroll') // uncomment kalau wajib payroll
+            ->get();
+
+        $out = [];
+        foreach ($slips as $g) {
+            $get = fn($k) => (float) (optional($g->details->where('kode',$k)->first())->total ?? 0);
+
+            // indeks utama: kode karyawan (id_karyawan)
+            if ($g->id_karyawan) {
+                $out['kode:'.(string)$g->id_karyawan] = [
+                    'subtotal' => $get('jml'),
+                    'kasbon'   => $get('h'),
+                    'grand'    => $get('grand'),
+                    'karyawan_id' => $g->karyawan_id,
+                    'nama'        => mb_strtolower(trim((string)$g->nama)),
+                ];
+            }
+            // indeks alternatif: PK
+            if ($g->karyawan_id) {
+                $out['pk:'.$g->karyawan_id] = [
+                    'subtotal' => $get('jml'),
+                    'kasbon'   => $get('h'),
+                    'grand'    => $get('grand'),
+                    'karyawan_id' => $g->karyawan_id,
+                    'nama'        => mb_strtolower(trim((string)$g->nama)),
+                ];
+            }
+            // indeks alternatif: nama (last resort)
+            $nameKey = 'name:'.mb_strtolower(trim((string)$g->nama));
+            if ($g->nama) {
+                $out[$nameKey] = [
+                    'subtotal' => $get('jml'),
+                    'kasbon'   => $get('h'),
+                    'grand'    => $get('grand'),
+                    'karyawan_id' => $g->karyawan_id,
+                    'nama'        => mb_strtolower(trim((string)$g->nama)),
+                ];
+            }
+        }
+        return $out;
+    }
+
+    private function parseMoney($v): float
+    {
+        // "Rp 3.548.438" -> 3548438
+        return (float) preg_replace('/[^\d.-]/','', (string)($v ?? 0));
+    }
+
+
+
+    private function roundAdjustment(float $amount, int $base = 1000, string $mode = 'nearest'): float
+    {
+        if ($base <= 0) return 0.0;
+
+        switch ($mode) {
+            case 'up':
+                $rounded = ceil($amount / $base) * $base;
+                break;
+            case 'down':
+                $rounded = floor($amount / $base) * $base;
+                break;
+            default: // 'nearest'
+                $rounded = round($amount / $base) * $base;
+                break;
+        }
+
+        return (float) ($rounded - $amount);
     }
 
 

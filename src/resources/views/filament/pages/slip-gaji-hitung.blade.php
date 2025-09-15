@@ -549,19 +549,23 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
-    window.addEventListener("load", function () {
-        setTimeout(function () {
-            flatpickr("#start_date", {
-                dateFormat: "Y-m-d",
-                defaultDate: "{{ $start_date ?? '' }}"
-            });
+  window.addEventListener("load", function () {
+    setTimeout(function () {
+      flatpickr("#start_date", { dateFormat: "Y-m-d", defaultDate: "{{ $start_date ?? '' }}" });
+      flatpickr("#end_date",   { dateFormat: "Y-m-d", defaultDate: "{{ $end_date ?? '' }}" });
+    }, 100);
+  });
 
-            flatpickr("#end_date", {
-                dateFormat: "Y-m-d",
-                defaultDate: "{{ $end_date ?? '' }}"
-            });
-        }, 100);
+  // === Auto-refresh Slip ketika Rekap disimpan ===
+  window.addEventListener('rekap-saved', (e) => {
+    const d = e.detail || {};
+    if (String(@json($karyawan_id)) === String(d.karyawanId ?? d.karyawanKode)
+        && @json($start_date) === d.start
+        && @json($end_date)   === d.end) {
+        @this.call('hitungGaji');
+    }
     });
 </script>
 @endpush
+
 

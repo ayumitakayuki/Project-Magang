@@ -536,44 +536,7 @@ class AbsensiRekapService
                 $rekap['per_user'][$nama]['sj'] = ($rekap['per_user'][$nama]['sj'] ?? 0) + $jumlahJam;
                 $kategori = 'sj';
             }
-                // // JALANKAN HANYA DI WEEKDAY (SJ) & BUKAN HARI BESAR
-                // if ($kategori === 'sj' && !$isLibur) {
-
-                //     // --- KELUAR SIANG TIDAK KEMBALI (berlaku untuk semua status) ---
-                //     $kasusKeluarSiangTidakKembali = ($record && $record->keluar_siang && !$record->masuk_siang);
-                //     if ($kasusKeluarSiangTidakKembali) {
-                //         $jks = Carbon::parse($record->keluar_siang)->format('H:i');
-                //         if     ($jks >= '09:00' && $jks <= '09:59') $sisaJam += 6;
-                //         elseif ($jks >= '10:00' && $jks <= '10:59') $sisaJam += 5;
-                //         elseif ($jks >= '11:00' && $jks <= '11:59') $sisaJam += 4;
-                //     }
-
-                //     // --- PULANG CEPAT (weekday, berlaku untuk semua status), hanya jika BUKAN kasus keluar-siang ---
-                //     if ($record && $record->pulang_kerja && !$kasusKeluarSiangTidakKembali) {
-                //         $jp = Carbon::parse($record->pulang_kerja)->format('H:i');
-
-                //         // Patokan normal: 17:00 = 8 jam (sisa 0)
-                //         if ($jp === '17:00') {
-                //             // no-op
-                //         }
-                //         // 17:16–18:59 juga 8 jam (sisa 0); ≥19:00 = lembur
-                //         elseif ($jp >= '17:16' && $jp <= '18:59') {
-                //             // no-op
-                //         }
-                //         // Rangkaian window lain (sesuai tabel)
-                //         elseif ($jp >= '15:50' && $jp <= '16:15') { $sisaJam += 1; }   // 7 jam
-                //         elseif ($jp >= '14:50' && $jp <= '15:14') { $sisaJam += 2; }   // 6 jam
-                //         elseif ($jp >= '13:50' && $jp <= '14:15') { $sisaJam += 3; }   // 5 jam
-                //         elseif ($jp >= '12:50' && $jp <= '13:15') { $sisaJam += 4; }   // 4 jam (kena istirahat)
-                //         elseif ($jp >= '11:50' && $jp <= '12:15') { $sisaJam += 4; }   // 4 jam
-                //         elseif ($jp >= '10:50' && $jp <= '11:15') { $sisaJam += 5; }   // 3 jam
-                //         elseif ($jp >= '09:50' && $jp <= '10:15') { $sisaJam += 6; }   // 2 jam
-                //         elseif ($jp >= '08:50' && $jp <= '09:15') { $sisaJam += 7; }   // 1 jam
-                //         elseif ($jp <  '08:50')                   { $sisaJam += 8; }   // 0 jam kerja
-                //     }
-
-                //     $sisaJam = min($sisaJam, 8);
-                // }
+                
                 // ==== SISA JAM: JALAN HANYA DI WEEKDAY & BUKAN LIBUR ====
                 if ($kategori === 'sj' && !$isLibur) {
                     // --- TELAT (biarkan logika yang sudah ada) ---

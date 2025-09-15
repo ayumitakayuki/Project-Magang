@@ -13,6 +13,7 @@ use Filament\Forms\Form;
 use Filament\Pages\Page;
 use Illuminate\Http\Request;
 use Filament\Notifications\Notification;
+use Livewire\Attributes\Url;
 
 class RekapAbsensi extends Page
 {
@@ -23,14 +24,14 @@ class RekapAbsensi extends Page
     public array $rekap = [];
     public $data_harian = [];
 
-    public ?string $start_date = null;
-    public ?string $end_date = null;
+    #[Url] public ?string $start_date = null; 
+    #[Url] public ?string $end_date = null;
 
-    public ?string $selected_id = null;
-    public ?string $selected_name = null;
-    public ?string $selected_lokasi = null;
-    public ?string $selected_proyek = null;
-    public ?string $status_karyawan = null;
+    #[Url] public ?string $selected_id = null;
+    #[Url] public ?string $selected_name = null;
+    #[Url] public ?string $selected_lokasi = null;
+    #[Url] public ?string $selected_proyek = null;
+    #[Url] public ?string $status_karyawan = null;
 
     public $all_karyawan = null;
     public bool $show_all = false;
@@ -39,112 +40,114 @@ class RekapAbsensi extends Page
     public float $totalSisaJam = 0;
     public float $jumlahHari = 0;
     public array $jumlahHariPerTanggal = [];
-    public function mount(Request $request): void
+    public function mount(): void
     {
         $this->all_karyawan = Karyawan::get(['id_karyawan', 'nama']);
-        $this->status_karyawan = $request->query('status_karyawan');
 
-        $keyword = $request->query('karyawan_keyword');
-        $this->selected_lokasi = $request->query('lokasi');
-        $this->selected_proyek = $request->query('proyek');
-        $this->show_all = $request->has('show_all') ? $request->query('show_all') === '1' : true;
+        // default tanggal kalau kosong (bukan dari request)
+        $this->start_date ??= now()->subMonth()->toDateString();
+        $this->end_date   ??= now()->toDateString();
 
-        if ($keyword) {
-            $matched = Karyawan::where('id_karyawan', $keyword)
-                ->orWhere('nama', 'like', '%' . $keyword . '%')
-                ->first();
-
-            $this->selected_id = $matched?->id_karyawan;
-            $this->selected_name = $matched?->nama;
-            $this->status_karyawan = $matched?->status;
-            $this->selected_lokasi = $matched?->lokasi;
-            $this->selected_proyek = $matched?->jenis_proyek;
-
-            if ($matched) {
+        // isi nama/status/lokasi/proyek dari selected_id (jika ada)
+        if ($this->selected_id && !$this->selected_name) {
+            if ($m = Karyawan::where('id_karyawan', $this->selected_id)->first()) {
+                $this->selected_name   = $m->nama;
+                $this->status_karyawan ??= $m->status;
+                $this->selected_lokasi ??= $m->lokasi;
+                $this->selected_proyek ??= $m->jenis_proyek;
                 $this->show_all = false;
             }
         }
 
-        $this->start_date = $request->query('start_date') ?? now()->subMonth()->toDateString();
-        $this->end_date = $request->query('end_date') ?? now()->toDateString();
-
-        $this->lokasi_options = Karyawan::query()
-            ->distinct()
-            ->pluck('lokasi')
-            ->filter()
-            ->values()
-            ->all();
+        // opsi dropdown
+        $this->lokasi_options = Karyawan::query()->distinct()->pluck('lokasi')->filter()->values()->all();
 
         $this->proyek_options = Karyawan::query()
             ->where('lokasi', 'proyek')
             ->whereNotNull('jenis_proyek')
             ->orderBy('jenis_proyek')
-            ->distinct()
-            ->pluck('jenis_proyek')
-            ->unique()
-            ->filter()
-            ->values()
-            ->all();
+            ->distinct()->pluck('jenis_proyek')->unique()->filter()->values()->all();
 
         $this->loadRekap();
     }
 
+
     public function loadRekap(bool $persist = false): void
     {
-        // Auto-aktifkan show_all hanya jika SEMUA filter kosong
-        if (
-            !$this->selected_name &&
-            (!$this->status_karyawan || $this->status_karyawan === 'all') &&
-            !$this->selected_lokasi &&
-            !$this->selected_proyek &&
-            !$this->selected_id
-        ) {
-            $this->show_all = true;
+        /* 0) Normalisasi state terlebih dulu */
+        if ($this->selected_id && !$this->selected_name) {
+            // Ambil nama RESMI dari DB berdasar ID agar tidak kena mismatch lowercase/dll.
+            $this->selected_name = Karyawan::where('id_karyawan', $this->selected_id)->value('nama') ?: null;
         }
-
-        /**
-         * 1) PRIORITAS: filter berdasarkan NAMA (fix utama)
-         */
-        if ($this->selected_name) {
-            // Rekap khusus 1 user
-            $this->rekap = (array) app(AbsensiRekapService::class)->rekapUntukUser(
-                $this->selected_name,
-                $this->start_date,
-                $this->end_date,
-                $persist
-            );
-
-            $this->data_harian = Absensi::where('name', $this->selected_name)
-                ->whereBetween('tanggal', [$this->start_date, $this->end_date])
-                ->orderBy('tanggal')
-                ->get();
-
-            // Hitung jumlah hari & sisa jam per tanggal
-            $jumlahHariPerTanggal = app(AbsensiRekapService::class)
-                ->hitungJumlahHariPerTanggal($this->data_harian);
-
-            $totalSisaJam = 0;
-            $totalHari = 0;
-
-            foreach ($jumlahHariPerTanggal as $rekapPerTanggal) {
-                if (isset($rekapPerTanggal['sisa_jam']) && is_numeric($rekapPerTanggal['sisa_jam'])) {
-                    $totalSisaJam += $rekapPerTanggal['sisa_jam'];
-                }
-                if (isset($rekapPerTanggal['jumlah_hari']) && is_numeric($rekapPerTanggal['jumlah_hari'])) {
-                    $totalHari += $rekapPerTanggal['jumlah_hari'];
-                }
+        // Jika user menghapus pilihan
+        if (!$this->selected_id && $this->selected_name) {
+            $id = Karyawan::where('nama', $this->selected_name)->value('id_karyawan');
+            if (!$id) {
+                $this->selected_name = null;
             }
-
-            $this->totalSisaJam = $totalSisaJam;
-            $this->jumlahHari = $totalHari;
-            $this->jumlahHariPerTanggal = $jumlahHariPerTanggal;
-
-            return; // ⬅️ penting: hentikan eksekusi di sini
         }
 
-        /**
-         * 2) FILTER BERDASARKAN LOKASI (workshop/proyek/other)
-         */
+        // 0.1) Hitung show_all SEKALI saja: true hanya jika SEMUA filter kosong / default
+        $this->show_all =
+            empty($this->selected_id) &&
+            empty($this->selected_name) &&
+            (empty($this->status_karyawan) || $this->status_karyawan === 'all') &&
+            empty($this->selected_lokasi) &&
+            empty($this->selected_proyek);
+
+        /* 1) PRIORITAS: filter berdasarkan NAMA (single user) */
+        if ($this->selected_name) {
+        // >>> pakai rekapSemuaUser agar struktur $rekap sama dengan "show all"
+        $nama_karyawan = collect([$this->selected_name]);
+
+        $this->rekap = app(AbsensiRekapService::class)->rekapSemuaUser(
+            $this->start_date,
+            $this->end_date,
+            $nama_karyawan,
+            $this->status_karyawan,   // boleh null / 'all'
+            $this->selected_lokasi,   // boleh null
+            $this->selected_proyek,   // boleh null
+            $persist
+        );
+
+        // data harian untuk tabel kiri
+        $this->data_harian = Absensi::where('name', $this->selected_name)
+            ->whereBetween('tanggal', [$this->start_date, $this->end_date])
+            ->orderBy('tanggal')
+            ->get();
+
+        // hitung jumlah hari & sisa jam per tanggal (punya kamu sendiri)
+        $jumlahHariPerTanggal = app(AbsensiRekapService::class)
+            ->hitungJumlahHariPerTanggal($this->data_harian);
+
+        $totalSisaJam = 0;
+        $totalHari = 0;
+        foreach ($jumlahHariPerTanggal as $rekapPerTanggal) {
+            if (isset($rekapPerTanggal['sisa_jam']) && is_numeric($rekapPerTanggal['sisa_jam'])) {
+                $totalSisaJam += $rekapPerTanggal['sisa_jam'];
+            }
+            if (isset($rekapPerTanggal['jumlah_hari']) && is_numeric($rekapPerTanggal['jumlah_hari'])) {
+                $totalHari += $rekapPerTanggal['jumlah_hari'];
+            }
+        }
+
+        $this->totalSisaJam          = $totalSisaJam;
+        $this->jumlahHari            = $totalHari;
+        $this->jumlahHariPerTanggal  = $jumlahHariPerTanggal;
+
+        // show_all hanya true kalau semua filter kosong
+        $this->show_all = !(
+            $this->selected_name ||
+            $this->selected_id ||
+            ($this->status_karyawan && $this->status_karyawan !== 'all') ||
+            $this->selected_lokasi ||
+            $this->selected_proyek
+        );
+
+        return;
+    }
+
+        /* 2) FILTER BERDASARKAN LOKASI */
         if ($this->selected_lokasi) {
             if ($this->selected_lokasi === 'workshop' || $this->selected_lokasi === 'proyek') {
                 $nama_yang_pernah_absen = Absensi::whereBetween('tanggal', [$this->start_date, $this->end_date])
@@ -206,24 +209,20 @@ class RekapAbsensi extends Page
                 }
             }
 
-            return; // ⬅️ hentikan eksekusi setelah cabang lokasi
+            return; // stop setelah cabang lokasi
         }
 
-        /**
-         * 3) SHOW ALL (default atau dipaksa oleh user)
-         */
+        /* 3) SHOW ALL */
         if ($this->show_all) {
-            $query = Absensi::whereBetween('tanggal', [$this->start_date, $this->end_date]);
+            $query         = Absensi::whereBetween('tanggal', [$this->start_date, $this->end_date]);
             $karyawanQuery = Karyawan::query();
 
             if ($this->status_karyawan && $this->status_karyawan !== 'all') {
                 $karyawanQuery->where('status', $this->status_karyawan);
             }
-
             if ($this->selected_lokasi) {
                 $karyawanQuery->where('lokasi', $this->selected_lokasi);
             }
-
             if ($this->selected_lokasi === 'proyek' && $this->selected_proyek) {
                 $karyawanQuery->where('jenis_proyek', $this->selected_proyek);
             }
@@ -249,16 +248,23 @@ class RekapAbsensi extends Page
             return;
         }
 
-        /**
-         * 4) FALLBACK (jika tidak ada kondisi yang match)
-         */
+        /* 4) FALLBACK (tak ada kondisi yang match) */
         $this->data_harian = [];
         $this->rekap = [];
     }
 
     public function filter(): void
     {
-        $this->loadRekap(false); // hanya hitung & tampilkan
+        // Derive nama dari ID → hindari mismatch kapitalisasi / label UI
+        if ($this->selected_id) {
+            $nama = Karyawan::where('id_karyawan', $this->selected_id)->value('nama');
+            $this->selected_name = $nama ?: null;
+            $this->show_all = false;
+        } else {
+            $this->selected_name = null;
+        }
+
+        $this->loadRekap(false);
     }
 
     public function simpan(): void
@@ -272,8 +278,20 @@ class RekapAbsensi extends Page
         }
 
         try {
-            // ini akan menyimpan ke DB karena kamu sudah set $persist = true di loadRekap(true)
+            // Simpan rekapmu seperti biasa
             $this->loadRekap(true);
+
+            // --- Kirim event ke browser: pakai PK & KODE sekaligus ---
+            $karyawanPk = Karyawan::where('id', $this->selected_id)->value('id')
+                ?? Karyawan::where('id_karyawan', $this->selected_id)->value('id');
+
+            $this->dispatch(
+                'rekap-saved',
+                karyawanId:   (string) $karyawanPk,        // PK karyawans.id (jika ada)
+                karyawanKode: (string) $this->selected_id, // id_karyawan (kode/NIP)
+                start:        (string) $this->start_date,
+                end:          (string) $this->end_date,
+            );
 
             Notification::make()
                 ->title('Rekap tersimpan')
@@ -292,5 +310,6 @@ class RekapAbsensi extends Page
             report($e);
         }
     }
+
 
 }
